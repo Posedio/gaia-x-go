@@ -1,0 +1,8 @@
+.env
+*.pem
+.VSCodeCounter
+.idea
+logs
+.run
+*.store
+*.DS_Store
