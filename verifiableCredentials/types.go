@@ -204,7 +204,7 @@ func (c *VerifiableCredential) Verify() error {
 }
 
 func VerifyCertChain(url string) (*x509.Certificate, error) {
-	c := http.Client{Timeout: time.Second * 1}
+	c := http.Client{Timeout: time.Second * 2}
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
