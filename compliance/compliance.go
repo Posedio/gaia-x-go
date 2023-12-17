@@ -142,7 +142,7 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 				return nil, err
 			}
 			if !jwk.Equal(verifyKey, k.JWK) {
-				return nil, fmt.Errorf("publik key from key does not match public key of did")
+				return nil, fmt.Errorf("public key from key does not match public key of did")
 			}
 		}
 
@@ -236,11 +236,11 @@ type ServiceOfferingOptions interface {
 }
 
 type ParticipantComplianceOptions struct {
-	Id                        string                        `json:"id" validate:"required,uri"`
-	TermAndConditionsVC       *vcTypes.VerifiableCredential `validate:"required"`
-	LegalRegistrationNumberVC *vcTypes.VerifiableCredential `validate:"required"`
-	Participant               ParticipantOptions            `validate:"required"` //todo check
-	participantVC             *vcTypes.VerifiableCredential
+	Id                        string                        `json:"id" validate:"required,uri"` // Id will be the future id of the verifiable credential
+	TermAndConditionsVC       *vcTypes.VerifiableCredential `validate:"required"`               // TermAndConditionsVC the pointer to the T&C vc
+	LegalRegistrationNumberVC *vcTypes.VerifiableCredential `validate:"required"`               // LegalRegistrationNumberVC pointer to the legal registration number vc
+	Participant               ParticipantOptions            `validate:"required"`               // Participant includes the interface to ParticipantOptions, these require that a vc can be built from it
+	participantVC             *vcTypes.VerifiableCredential //internal used to store the vc from the BuildParticipantVC function of the ParticipantOptions
 }
 
 func (pco *ParticipantComplianceOptions) BuildParticipantVC() error {
