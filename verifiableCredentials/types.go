@@ -254,7 +254,7 @@ func VerifyCertChain(url string) (*x509.Certificate, error) {
 		}
 	}
 
-	log.Printf("the domains %v, are singed from %v and are vaild till %v and owned by %v", cert.DNSNames, cert.Issuer, cert.NotAfter, cert.Subject.String())
+	log.Printf("the domains %v, are singed from %v and are valid till %v and owned by %v", cert.DNSNames, cert.Issuer, cert.NotAfter, cert.Subject.String())
 
 	if cert.KeyUsage&x509.KeyUsageDigitalSignature == 0 {
 		log.Println("certificate does not allow digital signature")
