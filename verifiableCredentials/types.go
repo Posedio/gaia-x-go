@@ -8,6 +8,7 @@ package verifiableCredentials
 import (
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
@@ -138,6 +139,14 @@ func (c *VerifiableCredential) ToJson() ([]byte, error) {
 		return nil, err
 	}
 	return marshal, nil
+}
+
+func (c *VerifiableCredential) ToBase64() (string, error) {
+	toJson, err := c.ToJson()
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(toJson), nil
 }
 
 func (c *VerifiableCredential) Validate(validate *validator.Validate) error {
