@@ -75,6 +75,22 @@ func (vp *VerifiablePresentation) String() string {
 	return string(marshal)
 }
 
+func (vp *VerifiablePresentation) ToJson() ([]byte, error) {
+	marshal, err := json.Marshal(vp)
+	if err != nil {
+		return nil, err
+	}
+	return marshal, nil
+}
+
+func (vp *VerifiablePresentation) ToBase64() (string, error) {
+	toJson, err := vp.ToJson()
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(toJson), nil
+}
+
 func NewEmptyVerifiableCredential() *VerifiableCredential {
 	vc := &VerifiableCredential{}
 
