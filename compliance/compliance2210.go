@@ -36,26 +36,26 @@ type Compliance2210 struct {
 }
 
 // SelfSign adds a crypto proof to the self-description
-func (c *Compliance2210) SelfSign(vc *vcTypes.VerifiableCredential) ([]byte, error) {
+func (c *Compliance2210) SelfSign(vc *vcTypes.VerifiableCredential) error {
 	//check on valid json and prepare for proof added
 
 	if vc.Proof != nil {
 		proofError := fmt.Errorf("vc with id %v already signed", vc.ID)
 		err := vc.Verify()
 		if err != nil {
-			return nil, errors.Join(proofError, err)
+			return errors.Join(proofError, err)
 		}
-		return nil, proofError
+		return proofError
 	}
 
 	canonizeGo, err := vc.CanonizeGo()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	jwsToken, hash, err := generateJWS(canonizeGo, c.key)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	proof := &vcTypes.Proof{
@@ -68,30 +68,27 @@ func (c *Compliance2210) SelfSign(vc *vcTypes.VerifiableCredential) ([]byte, err
 
 	publicKey, err := c.key.PublicKey()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	a, err := jws.Verify(jwsToken, jws.WithDetachedPayload([]byte(hash)), jws.WithKey(jwa.PS256, publicKey))
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if string(a) != hash {
-		return nil, errors.New("internal error: hashes don't match")
+		return errors.New("internal error: hashes don't match")
 	}
 
 	vc.Proof = &vcTypes.Proofs{Proofs: []*vcTypes.Proof{proof}, WasSlice: false}
-	toJson, err := vc.ToJson()
-	if err != nil {
-		return nil, err
-	}
 
-	return toJson, nil
+	return nil
 }
 
-func (c *Compliance2210) ReSelfSign(credential *vcTypes.VerifiableCredential) ([]byte, error) {
+func (c *Compliance2210) ReSelfSign(credential *vcTypes.VerifiableCredential) error {
 	credential.Proof = nil
-	return c.SelfSign(credential)
+	_, err := c.SelfSignVC(credential)
+	return err
 }
 
 func (c *Compliance2210) SelfSignVC(vc *vcTypes.VerifiableCredential) (*vcTypes.VerifiableCredential, error) {

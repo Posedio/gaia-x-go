@@ -208,7 +208,7 @@ func TestSelfSigned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = c.SelfSign(vc)
+	err = c.SelfSign(vc)
 	if err != nil {
 		t.Fatal(err)
 	}

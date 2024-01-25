@@ -141,6 +141,29 @@ func TestCompliantServiceOfferingWithResourceAndExtension(t *testing.T) {
 		t.Log(err)
 	}
 
+	cus := []map[string]interface{}{{
+		"type":      "schema:person",
+		"id":        "https://some-acme-offering.org",
+		"foaf:name": "John Doe",
+	}, {
+		"type": "gx:ServiceOffering",
+		"id":   "https://some-acme-offering.org",
+	}}
+
+	sign, err := connector.SelfSignCredentialSubject("https://some-acme-offering.org", cus)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sign.Context.Context = append(sign.Context.Context, "https://schema.org/version/latest/schemaorg-current-https.jsonld")
+
+	err = connector.ReSelfSign(sign)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vp.VerifiableCredential = append(vp.VerifiableCredential, sign)
+
 	t.Log(vp)
 
 }
