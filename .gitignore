@@ -6,3 +6,5 @@ logs
 .run
 *.store
 *.DS_Store
+*.crt
+*.json
