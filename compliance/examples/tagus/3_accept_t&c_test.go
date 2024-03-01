@@ -3,12 +3,10 @@ MIT License
 Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
 */
 
-package examples
+package loire
 
 import (
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/compliance"
-	"os"
 	"testing"
 )
 
@@ -23,7 +21,7 @@ func TestSignTermsAndConditions(t *testing.T) {
 	// as described above a private key with a public key that is signed by a qualified trust anchor is needed
 	// as issuer a did as shown in 1_did is shown has to be provided
 	// since a did can have multiple verification methods one that is used have to be specified, obviously this has to be the qualified public key to the set private key.
-	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, "", "22.10", key, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
+	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, "", "tagus", key, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,24 +46,7 @@ func TestSignTermsAndConditions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Log(tc)
 
-}
-
-// helper function to get the private key from certificate file
-func getKey(t *testing.T) jwk.Key {
-	path := os.Getenv("TestSignPrivateKeyFile")
-	if path == "" {
-		t.Fatal("missing env variable")
-	}
-	set, err := jwk.ReadFile(path, jwk.WithPEM(true))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	key, ok := set.Key(0)
-	if !ok {
-		t.Fatal("no key in set")
-	}
-	return key
 }

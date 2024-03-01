@@ -6,6 +6,7 @@ Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
 package verifiableCredentials
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
@@ -14,6 +15,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"github.com/hashicorp/go-retryablehttp"
 	"io"
 	"log"
 	"net/http"
@@ -24,7 +26,6 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gowebpki/jcs"
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/piprate/json-gold/ld"
 	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/did"
@@ -129,9 +130,11 @@ type VerifiableCredential struct {
 		GxExecutionDate string `json:"gx:executionDate,omitempty"`
 		GxEvidenceOf    string `json:"gx:evidenceOf,omitempty"`
 	} `json:"evidence,omitempty"`
-	proc    *ld.JsonLdProcessor
-	Options *ld.JsonLdOptions `json:"-"`
-	mux     sync.Mutex
+	proc          *ld.JsonLdProcessor
+	Options       *ld.JsonLdOptions `json:"-"`
+	mux           sync.Mutex
+	once          sync.Once
+	verifyOptions verifyOptions
 }
 
 func (c *VerifiableCredential) ToMap() (map[string]interface{}, error) {
@@ -169,7 +172,16 @@ func (c *VerifiableCredential) Validate(validate *validator.Validate) error {
 	return validate.Struct(c)
 }
 
-func (c *VerifiableCredential) Verify() error {
+func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
+	vO := &verifyOptions{}
+
+	for _, o := range options {
+		err := o.apply(vO)
+		if err != nil {
+			return err
+		}
+	}
+
 	for _, proof := range c.Proof.Proofs {
 		d, err := did.ResolveDIDWeb(proof.VerificationMethod)
 		if err != nil {
@@ -187,19 +199,34 @@ func (c *VerifiableCredential) Verify() error {
 		}
 
 		c.mux.Lock()
-		defer c.mux.Unlock()
 
 		p := c.Proof
+
 		c.Proof = nil
 
 		n, err := c.CanonizeGo()
 		if err != nil {
 			c.Proof = p
+			c.mux.Unlock()
 			return err
 		}
 		c.Proof = p
+		c.mux.Unlock()
 
-		hash := GenerateHash(n)
+		var pn []byte
+
+		if !vO.useOldSignature {
+			pn, err = proof.Normalize(c)
+			if err != nil {
+				return err
+			}
+		}
+
+		sdHash := GenerateHash(n)
+		var proofHash []byte
+		if len(pn) > 0 {
+			proofHash = GenerateHash(pn)
+		}
 
 		key, ok := d.Keys[proof.VerificationMethod]
 		if !ok {
@@ -218,8 +245,20 @@ func (c *VerifiableCredential) Verify() error {
 			log.Println(err)
 		}
 
-		_, err = jws.Verify([]byte(proof.JWS), jws.WithKey(k.Algorithm(), k), jws.WithDetachedPayload([]byte(hash)))
+		var hash []byte
+
+		if vO.useOldSignature {
+			hash = []byte(EncodeToString(sdHash))
+		} else {
+			hash = bytes.Join([][]byte{proofHash, sdHash}, []byte{})
+		}
+
+		_, err = jws.Verify([]byte(proof.JWS), jws.WithKey(k.Algorithm(), k), jws.WithDetachedPayload(hash))
 		if err != nil {
+			if !vO.retryWithOldSignature {
+				options = append(options, retryWithOldSignAlgorithm())
+				return c.Verify(options...)
+			}
 			return err
 		}
 
@@ -299,10 +338,28 @@ func VerifyCertChain(url string) (*x509.Certificate, error) {
 	return cert, nil
 }
 
-func GenerateHash(sd []byte) string {
-	h := sha256.Sum256(sd)
-	hash := hex.EncodeToString(h[:])
-	return hash
+func (c *VerifiableCredential) setupJsonLdProcessor() {
+	c.proc = ld.NewJsonLdProcessor()
+
+	c.Options = ld.NewJsonLdOptions("")
+	c.Options.UseRdfType = true
+	c.Options.Format = "application/n-quads"
+	c.Options.Algorithm = ld.AlgorithmURDNA2015
+
+	// since the w3c website is not perfectly available retry it 10 times,
+	// alternatively the document loader could cache the result
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = 10
+	retryClient.RetryWaitMax = 4000 * time.Millisecond
+	retryClient.HTTPClient.Timeout = 3500 * time.Millisecond
+	retryClient.Logger = nil
+	retryClient.CheckRetry = DefaultRetryPolicy
+
+	client := retryClient.StandardClient()
+
+	loader := NewDocumentLoader(client)
+
+	c.Options.DocumentLoader = loader
 }
 
 func (c *VerifiableCredential) CanonizeGo() ([]byte, error) {
@@ -311,31 +368,7 @@ func (c *VerifiableCredential) CanonizeGo() ([]byte, error) {
 		return nil, err
 	}
 
-	if c.proc == nil || c.Options == nil {
-
-		c.proc = ld.NewJsonLdProcessor()
-
-		c.Options = ld.NewJsonLdOptions("")
-		c.Options.UseRdfType = true
-		c.Options.Format = "application/n-quads"
-		c.Options.Algorithm = ld.AlgorithmURDNA2015
-
-		// since the w3c website is not perfectly available retry it 10 times,
-		// alternatively the document loader could cache the result
-		retryClient := retryablehttp.NewClient()
-		retryClient.RetryMax = 10
-		retryClient.RetryWaitMax = 4000 * time.Millisecond
-		retryClient.HTTPClient.Timeout = 3500 * time.Millisecond
-		retryClient.Logger = nil
-		retryClient.CheckRetry = DefaultRetryPolicy
-
-		client := retryClient.StandardClient()
-
-		loader := NewDocumentLoader(client)
-
-		c.Options.DocumentLoader = loader
-
-	}
+	c.once.Do(c.setupJsonLdProcessor)
 
 	n, err := c.proc.Normalize(m, c.Options)
 	if err != nil {
@@ -363,13 +396,13 @@ func (c *VerifiableCredential) JSC() ([]byte, error) {
 	return trans, nil
 }
 
-func (c *VerifiableCredential) Hash() (string, error) {
+func (c *VerifiableCredential) HashHex() (string, error) {
 	jsc, err := c.JSC()
 	if err != nil {
 		return "", err
 	}
 	hash := GenerateHash(jsc)
-	return hash, nil
+	return EncodeToString(hash), nil
 }
 
 func (c *VerifiableCredential) String() string {
@@ -512,6 +545,50 @@ type Proof struct {
 	JWS                string `json:"jws"`
 }
 
+func (p *Proof) Normalize(vc *VerifiableCredential) ([]byte, error) {
+	pm, err := p.ToMap()
+	if err != nil {
+		return nil, err
+	}
+	delete(pm, "jws")
+
+	pm["@context"] = []interface{}{
+		"https://www.w3.org/2018/credentials/v1",
+		"https://w3id.org/security/suites/jws-2020/v1",
+	}
+
+	vc.once.Do(vc.setupJsonLdProcessor)
+
+	n, err := vc.proc.Normalize(pm, vc.Options)
+	if err != nil {
+		if strings.Contains(err.Error(), string(ld.LoadingRemoteContextFailed)) {
+			log.Println(err.Error())
+		}
+		return nil, fmt.Errorf("jsongold error: %v", err)
+	}
+
+	if re, k := n.(string); k {
+		return []byte(re), nil
+	}
+	return nil, errors.New("could not convert to byte slice")
+
+}
+
+func (p *Proof) ToMap() (map[string]interface{}, error) {
+	marshal, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+
+	var m map[string]interface{}
+
+	err = json.Unmarshal(marshal, &m)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 type Proofs struct {
 	Proofs   []*Proof
 	WasSlice bool
@@ -552,4 +629,43 @@ func (cs *Proofs) UnmarshalJSON(dat []byte) error {
 		cs.WasSlice = true
 	}
 	return nil
+}
+
+type VerifyOption struct {
+	f func(option *verifyOptions) error
+}
+
+func (so *VerifyOption) apply(option *verifyOptions) error {
+	return so.f(option)
+}
+
+// verifyOptions is an internal struct to store the various options
+type verifyOptions struct {
+	useOldSignature       bool
+	retryWithOldSignature bool
+	mux                   sync.RWMutex
+}
+
+func UseOldSignAlgorithm() *VerifyOption {
+	return &VerifyOption{f: func(option *verifyOptions) error {
+		option.useOldSignature = true
+		return nil
+	}}
+}
+
+func retryWithOldSignAlgorithm() *VerifyOption {
+	return &VerifyOption{f: func(option *verifyOptions) error {
+		option.useOldSignature = true
+		option.retryWithOldSignature = true
+		return nil
+	}}
+}
+
+func EncodeToString(hash []byte) string {
+	return hex.EncodeToString(hash[:])
+}
+
+func GenerateHash(b []byte) []byte {
+	h := sha256.Sum256(b)
+	return h[:]
 }

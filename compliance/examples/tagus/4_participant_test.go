@@ -3,10 +3,11 @@ MIT License
 Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
 */
 
-package examples
+package loire
 
 import (
 	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/compliance"
+	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/verifiableCredentials"
 	"testing"
 )
 
@@ -16,7 +17,7 @@ func TestCompliantParticipant(t *testing.T) {
 	privateKey := getKey(t)
 
 	// to establish a client we follow the steps we had already done
-	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, compliance.ArubaV1Notary, "22.10", privateKey, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
+	connector, err := compliance.NewComplianceConnector(compliance.DevelopmentBranch, compliance.ArubaV1Notary, "tagus", privateKey, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,6 +64,7 @@ func TestCompliantParticipant(t *testing.T) {
 
 	vc, vp, err := connector.GaiaXSignParticipant(pco)
 	if err != nil {
+		t.Log(vp)
 		t.Fatal(err)
 	}
 
@@ -71,4 +73,9 @@ func TestCompliantParticipant(t *testing.T) {
 
 	// retrieved verifiable credential from the compliance server
 	t.Log(vc)
+
+	err = vc.Verify(verifiableCredentials.UseOldSignAlgorithm())
+	if err != nil {
+		t.Fatal(err)
+	}
 }

@@ -3,7 +3,7 @@ MIT License
 Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
 */
 
-package examples
+package loire
 
 import (
 	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/compliance"
@@ -16,7 +16,7 @@ func TestCompliantServiceOffering(t *testing.T) {
 	privateKey := getKey(t)
 
 	// to establish a client we follow the steps we had already done
-	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, compliance.ArubaV1Notary, "22.10", privateKey, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
+	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, compliance.ArubaV1Notary, "loire", privateKey, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
 	if err != nil {
 		t.Fatal(err)
 	}

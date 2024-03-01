@@ -87,34 +87,8 @@ const (
 var trustFrameWorkURL = "https://registry.lab.gaia-x.eu/development/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#"
 var participantURL = "https://registry.lab.gaia-x.eu/development/api/trusted-shape-registry/v1/shapes/jsonld/participant"
 
-// NewCompliance
-// Deprecated: should not be used anymore since normalization is now done in go directly and NewComplianceConnector implements more checks
-func NewCompliance(_ string, signUrl ServiceUrl, version string, key jwk.Key, issuer string, verificationMethod string) (Compliance, error) {
-	if version == "22.10" {
-		c := &Compliance2210{
-			signUrl:               signUrl,
-			version:               version,
-			key:                   key,
-			issuer:                issuer,
-			registrationNumberUrl: ArubaV1Notary,
-			verificationMethod:    verificationMethod,
-			client: &http.Client{
-				Timeout: 20 * time.Second,
-			},
-			validate: validator.New(),
-		}
-		err := c.validate.RegisterValidation("validateRegistrationNumberType", ValidateRegistrationNumberType)
-		if err != nil {
-			return nil, err
-		}
-		return c, nil
-	}
-
-	return nil, errors.New("not supported version")
-}
-
 func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl RegistrationNumberUrl, version string, key jwk.Key, issuer string, verificationMethod string) (Compliance, error) {
-	if version == "22.10" {
+	if version == "22.10" || version == "tagus" || version == "Tagus" {
 		var didResolved *did.DID
 		if issuer != "" || key != nil || verificationMethod != "" {
 			var err error
@@ -146,7 +120,59 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 			}
 		}
 
-		c := &Compliance2210{
+		c := &TagusCompliance{
+			signUrl:               signUrl,
+			version:               version,
+			key:                   key,
+			issuer:                issuer,
+			registrationNumberUrl: registrationNumberUrl,
+			verificationMethod:    verificationMethod,
+			client: &http.Client{
+				Timeout: 20 * time.Second,
+			},
+			did:      didResolved,
+			validate: validator.New(),
+		}
+
+		err := c.validate.RegisterValidation("validateRegistrationNumberType", ValidateRegistrationNumberType)
+		if err != nil {
+			return nil, err
+		}
+
+		return c, nil
+	} else if version == "23.10" || version == "loire" || version == "Loire" {
+		var didResolved *did.DID
+		if issuer != "" || key != nil || verificationMethod != "" {
+			var err error
+			didResolved, err = did.ResolveDIDWeb(issuer)
+			if err != nil {
+				var err1 error
+				didResolved, err1 = did.UniResolverDID(issuer)
+				if err1 != nil {
+					return nil, errors.Join(err, err1)
+				}
+			}
+
+			err = didResolved.ResolveMethods()
+			if err != nil {
+				return nil, err
+			}
+
+			k, ok := didResolved.Keys[verificationMethod]
+			if !ok {
+				return nil, fmt.Errorf("verification method %v not in the did %v", verificationMethod, issuer)
+			}
+
+			verifyKey, err := key.PublicKey()
+			if err != nil {
+				return nil, err
+			}
+			if !jwk.Equal(verifyKey, k.JWK) {
+				return nil, fmt.Errorf("public key from key does not match public key of did")
+			}
+		}
+
+		c := &LoireCompliance{
 			signUrl:               signUrl,
 			version:               version,
 			key:                   key,

@@ -41,7 +41,7 @@ func TestTCSigned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c, err := NewComplianceConnector(signUrlB, ArubaV1Notary, "22.10", raw, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
+	c, err := NewComplianceConnector(signUrlB, ArubaV1Notary, "23.10", raw, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
 	if err != nil {
 		t.Fatal(err)
 	}

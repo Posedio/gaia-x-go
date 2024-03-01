@@ -3,7 +3,7 @@ MIT License
 Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
 */
 
-package examples
+package loire
 
 import (
 	"context"

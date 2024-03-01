@@ -3,20 +3,20 @@ MIT License
 Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
 */
 
-package examples
+package loire
 
 import (
 	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/compliance"
 	"testing"
 )
 
-func TestCompliantServiceOfferingWithResourceAndExtension(t *testing.T) {
+func TestCompliantServiceOfferingWithResource(t *testing.T) {
 	// to retrieve a compliant participant credential, as described before a digital identity in this case a DID is needed
 	// so first loading the private key is needed
 	privateKey := getKey(t)
 
 	// to establish a client we follow the steps we had already done
-	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, compliance.ArubaV1Notary, "22.10", privateKey, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
+	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, compliance.ArubaV1Notary, "loire", privateKey, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,9 +61,6 @@ func TestCompliantServiceOfferingWithResourceAndExtension(t *testing.T) {
 				"@id": "eupg:some-config.acme.org", // id from resource below
 			},
 		},
-		"schema:Person": map[string]interface{}{
-			"foaf:name": "John Doe",
-		},
 	}, {
 		"@type":       "gx:ServiceAccessPoint",      //optional resource, a list of Service Access Point which can be an endpoint as a mean to access and interact with the resource.
 		"@id":         "https://www.someWebsite.eu", // id of the credential
@@ -103,7 +100,6 @@ func TestCompliantServiceOfferingWithResourceAndExtension(t *testing.T) {
 		Id: "https://some-acme-offering.org",
 		ServiceOfferingOptions: compliance.ServiceOfferingOptionsAsMap{
 			ServiceOfferingCredentialSubject: oc,
-			CustomContext:                    []string{"https://schema.org/version/latest/schemaorg-current-https.jsonld"},
 		},
 		ParticipantComplianceOptions: compliance.ParticipantComplianceOptions{
 			Id: "https://acme.org",
@@ -140,30 +136,6 @@ func TestCompliantServiceOfferingWithResourceAndExtension(t *testing.T) {
 	if err != nil {
 		t.Log(err)
 	}
-
-	cus := []map[string]interface{}{{
-		"type":      "schema:person",
-		"id":        "https://some-acme-offering.org",
-		"foaf:name": "John Doe",
-	}, {
-		"type": "gx:ServiceOffering",
-		"id":   "https://some-acme-offering.org",
-	}}
-
-	sign, err := connector.SelfSignCredentialSubject("https://some-acme-offering.org", cus)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	sign.Context.Context = append(sign.Context.Context, "https://schema.org/version/latest/schemaorg-current-https.jsonld")
-
-	err = connector.ReSelfSign(sign)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	vp.VerifiableCredential = append(vp.VerifiableCredential, sign)
-
 	t.Log(vp)
 
 }

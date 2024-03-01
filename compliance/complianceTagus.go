@@ -23,7 +23,7 @@ import (
 	vcTypes "gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/verifiableCredentials"
 )
 
-type Compliance2210 struct {
+type TagusCompliance struct {
 	signUrl               ServiceUrl
 	version               string
 	issuer                string
@@ -36,12 +36,12 @@ type Compliance2210 struct {
 }
 
 // SelfSign adds a crypto proof to the self-description
-func (c *Compliance2210) SelfSign(vc *vcTypes.VerifiableCredential) error {
+func (c *TagusCompliance) SelfSign(vc *vcTypes.VerifiableCredential) error {
 	//check on valid json and prepare for proof added
 
 	if vc.Proof != nil {
 		proofError := fmt.Errorf("vc with id %v already signed", vc.ID)
-		err := vc.Verify()
+		err := vc.Verify(vcTypes.UseOldSignAlgorithm())
 		if err != nil {
 			return errors.Join(proofError, err)
 		}
@@ -85,19 +85,19 @@ func (c *Compliance2210) SelfSign(vc *vcTypes.VerifiableCredential) error {
 	return nil
 }
 
-func (c *Compliance2210) ReSelfSign(credential *vcTypes.VerifiableCredential) error {
+func (c *TagusCompliance) ReSelfSign(credential *vcTypes.VerifiableCredential) error {
 	credential.Proof = nil
 	_, err := c.SelfSignVC(credential)
 	return err
 }
 
-func (c *Compliance2210) SelfSignVC(vc *vcTypes.VerifiableCredential) (*vcTypes.VerifiableCredential, error) {
+func (c *TagusCompliance) SelfSignVC(vc *vcTypes.VerifiableCredential) (*vcTypes.VerifiableCredential, error) {
 	if vc == nil {
 		return nil, errors.New("vc can not be nil")
 	}
 	if vc.Proof != nil {
 		proofError := fmt.Errorf("vc with id %v already signed", vc.ID)
-		err := vc.Verify()
+		err := vc.Verify(vcTypes.UseOldSignAlgorithm())
 		if err != nil {
 			return nil, errors.Join(proofError, err)
 		}
@@ -131,7 +131,7 @@ func (c *Compliance2210) SelfSignVC(vc *vcTypes.VerifiableCredential) (*vcTypes.
 		return nil, err
 	}
 
-	err = vc.Verify()
+	err = vc.Verify(vcTypes.UseOldSignAlgorithm())
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (c *Compliance2210) SelfSignVC(vc *vcTypes.VerifiableCredential) (*vcTypes.
 	return vc, nil
 }
 
-func (c *Compliance2210) SelfVerify(vc *vcTypes.VerifiableCredential) error {
+func (c *TagusCompliance) SelfVerify(vc *vcTypes.VerifiableCredential) error {
 
 	proof := vc.Proof
 	vc.Proof = nil
@@ -151,7 +151,9 @@ func (c *Compliance2210) SelfVerify(vc *vcTypes.VerifiableCredential) error {
 
 	vc.Proof = proof
 
-	h := vcTypes.GenerateHash(canonizeGo)
+	hash := vcTypes.GenerateHash(canonizeGo)
+
+	h := vcTypes.EncodeToString(hash)
 
 	publicKey, err := c.key.PublicKey()
 	if err != nil {
@@ -168,7 +170,7 @@ func (c *Compliance2210) SelfVerify(vc *vcTypes.VerifiableCredential) error {
 	return nil
 }
 
-func (c *Compliance2210) SignLegalRegistrationNumber(options LegalRegistrationNumberOptions) (*vcTypes.VerifiableCredential, error) {
+func (c *TagusCompliance) SignLegalRegistrationNumber(options LegalRegistrationNumberOptions) (*vcTypes.VerifiableCredential, error) {
 	err := c.validate.Struct(options)
 	if err != nil {
 		return nil, err
@@ -235,7 +237,7 @@ func (c *Compliance2210) SignLegalRegistrationNumber(options LegalRegistrationNu
 	return cred, nil
 }
 
-func (c *Compliance2210) SignTermsAndConditions(id string) (*vcTypes.VerifiableCredential, error) {
+func (c *TagusCompliance) SignTermsAndConditions(id string) (*vcTypes.VerifiableCredential, error) {
 	tc := &vcTypes.TermsAndConditions2210Struct{
 		Context:              vcTypes.Context{Context: []string{trustFrameWorkURL}},
 		Type:                 "gx:GaiaXTermsAndConditions",
@@ -319,7 +321,7 @@ func (c *Compliance2210) SignTermsAndConditions(id string) (*vcTypes.VerifiableC
 	return cred, nil
 }
 
-func (c *Compliance2210) SelfSignCredentialSubject(id string, credentialSubject []map[string]interface{}) (*vcTypes.VerifiableCredential, error) {
+func (c *TagusCompliance) SelfSignCredentialSubject(id string, credentialSubject []map[string]interface{}) (*vcTypes.VerifiableCredential, error) {
 	vc := &vcTypes.VerifiableCredential{
 		Context: vcTypes.Context{Context: []string{
 			vcTypes.W3Credentials,
@@ -340,7 +342,7 @@ func (c *Compliance2210) SelfSignCredentialSubject(id string, credentialSubject 
 	return signedVC, nil
 }
 
-func (c *Compliance2210) GaiaXSignParticipant(options ParticipantComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error) {
+func (c *TagusCompliance) GaiaXSignParticipant(options ParticipantComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error) {
 	err := c.validate.Struct(options)
 	if err != nil {
 		return nil, nil, err
@@ -385,7 +387,7 @@ func (c *Compliance2210) GaiaXSignParticipant(options ParticipantComplianceOptio
 		if err != nil {
 			return nil, nil, err
 		}
-		return nil, nil, fmt.Errorf("signing was not successful: %v", string(errBody))
+		return nil, vp, fmt.Errorf("signing was not successful: %v", string(errBody))
 	}
 
 	credential, err := io.ReadAll(resp.Body)
@@ -403,7 +405,7 @@ func (c *Compliance2210) GaiaXSignParticipant(options ParticipantComplianceOptio
 
 }
 
-func (c *Compliance2210) SelfSignSignTermsAndConditions(id string) (*vcTypes.VerifiableCredential, error) {
+func (c *TagusCompliance) SelfSignSignTermsAndConditions(id string) (*vcTypes.VerifiableCredential, error) {
 	tc := &vcTypes.TermsAndConditions2210Struct{
 		Context:              vcTypes.Context{Context: []string{trustFrameWorkURL}},
 		Type:                 "gx:GaiaXTermsAndConditions",
@@ -444,7 +446,7 @@ func (c *Compliance2210) SelfSignSignTermsAndConditions(id string) (*vcTypes.Ver
 	return signedVC, nil
 }
 
-func (c *Compliance2210) SignServiceOffering(options ServiceOfferingComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error) {
+func (c *TagusCompliance) SignServiceOffering(options ServiceOfferingComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error) {
 	err := c.validate.Struct(options)
 	if err != nil {
 		return nil, nil, err
@@ -512,7 +514,7 @@ func (c *Compliance2210) SignServiceOffering(options ServiceOfferingComplianceOp
 	return cred, vp, nil
 }
 
-func (c *Compliance2210) GetTermsAndConditions(url RegistryUrl) (string, error) {
+func (c *TagusCompliance) GetTermsAndConditions(url RegistryUrl) (string, error) {
 	req, err := http.NewRequest(http.MethodGet, url.String()+"api/termsAndConditions", http.NoBody)
 	if err != nil {
 		return "", err
@@ -542,7 +544,7 @@ func (c *Compliance2210) GetTermsAndConditions(url RegistryUrl) (string, error) 
 }
 
 // generateJWS sd has to be the normalized sd
-func (c *Compliance2210) generateJWS(sd []byte) ([]byte, string, error) {
+func (c *TagusCompliance) generateJWS(sd []byte) ([]byte, string, error) {
 	hash := hash256(sd)
 
 	header := jws.NewHeaders()

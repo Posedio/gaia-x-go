@@ -27,7 +27,7 @@ var signUrlB = V1Staging
 var exSD2210 = map[string]interface{}{
 	"@context": []interface{}{
 		"https://www.w3.org/2018/credentials/v1",
-		"https://registry.lab.gaia-x.eu//main/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#",
+		trustFrameWorkURL,
 	},
 	"type": []interface{}{
 		"VerifiableCredential",
@@ -68,7 +68,7 @@ var exampleSD2210 = `
 {
     "@context": [
         "https://www.w3.org/2018/credentials/v1",
-        "https://registry.lab.gaia-x.eu//main/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#"
+        "https://registry.lab.gaia-x.eu/development/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#"
     ],
     "type": [
         "VerifiableCredential"
@@ -196,7 +196,7 @@ func TestSelfSigned(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c, err := NewComplianceConnector(signUrlB, ArubaV1Notary, "22.10", raw, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
+	c, err := NewComplianceConnector(signUrlB, ArubaV1Notary, "23.10", raw, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
 	if err != nil {
 		t.Fatal(err)
 	}
