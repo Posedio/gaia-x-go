@@ -134,11 +134,22 @@ type VerificationMethod struct {
 	PublicKeyMultibase string                 `json:"publicKeyMultibase,omitempty"`
 }
 
+type ServiceType string
+
+var OID4VC ServiceType = "OID4VCI"
+var OID4CP ServiceType = "OID4VP"
+var LinkedDomain ServiceType = "LinkedDomains"
+var DIDCommMessaging ServiceType = "DIDCommMessaging"
+var CredentialRegistry ServiceType = "CredentialRegistry"
+
 // Service as defined in https://www.w3.org/TR/did-core/#service-properties
+// https://www.w3.org/TR/did-spec-registries/#openid4-verifiable-presentation
 type Service struct {
-	Id              string `json:"id"`
-	Type            string `json:"type"`
-	ServiceEndpoint string `json:"serviceEndpoint"` //todo could be also list of strings
+	Id              string      `json:"id"`
+	Type            ServiceType `json:"type"`
+	ServiceEndpoint interface{} `json:"serviceEndpoint"`
+	Accept          []string    `json:"accept,omitempty"`
+	RoutingKeys     []string    `json:"routingKeys,omitempty"`
 }
 
 // Controller as defined in https://www.w3.org/TR/did-core/#dfn-controller

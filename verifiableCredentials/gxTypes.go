@@ -5,7 +5,9 @@ Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
 
 package verifiableCredentials
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // RegistrationNumber2210Struct implements the shape of the registry number see:
 // https://registry.lab.gaia-x.eu/development/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#gx:legalRegistrationNumberShape
@@ -30,6 +32,20 @@ type TermsAndConditions2210Struct struct {
 	Type                 string  `json:"type"`
 	GxTermsAndConditions string  `json:"gx:termsAndConditions"`
 	ID                   string  `json:"id"`
+}
+
+func (tc *TermsAndConditions2210Struct) ToMap() (map[string]interface{}, error) {
+	j, err := json.Marshal(tc)
+	if err != nil {
+		return nil, err
+	}
+
+	var m = map[string]interface{}{}
+	err = json.Unmarshal(j, &m)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // ComplianceCredentialSubject implements the shape as returned by the compliance service as compliance credentials

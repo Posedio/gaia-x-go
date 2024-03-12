@@ -6,14 +6,16 @@ Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
 package loire
 
 import (
+	"github.com/go-playground/validator/v10"
 	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/compliance"
+	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/verifiableCredentials"
 	"testing"
 )
 
 func TestFirstComplianceCredential(t *testing.T) {
 	// to retrieve the first Gaia-X credential, only the endpoint for the notary part of the Gaia-x Clearing Houses is needed
 	// rest can be empty for now. It is possible to choose from: compliance.LabV1, compliance.ArubaV1Notary and compliance.TSystemV1
-	connector, err := compliance.NewComplianceConnector("", compliance.ArubaV1Notary, "loire", nil, "", "")
+	connector, err := compliance.NewComplianceConnector("", compliance.TSystemV1Notary, "loire", nil, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,5 +35,15 @@ func TestFirstComplianceCredential(t *testing.T) {
 	}
 
 	t.Log(legalRegistrationNumberVC)
+
+	err = legalRegistrationNumberVC.Validate(validator.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = legalRegistrationNumberVC.Verify(verifiableCredentials.UseOldSignAlgorithm())
+	if err != nil {
+		t.Fatal(err)
+	}
 
 }

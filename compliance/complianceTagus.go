@@ -177,7 +177,7 @@ func (c *TagusCompliance) SignLegalRegistrationNumber(options LegalRegistrationN
 	}
 
 	rn := vcTypes.RegistrationNumber2210Struct{
-		Context: vcTypes.Context{Context: []string{participantURL}},
+		Context: vcTypes.Context{Context: []vcTypes.Namespace{participantNamespace}},
 		Type:    "gx:legalRegistrationNumber",
 		ID:      options.Id,
 	}
@@ -239,7 +239,7 @@ func (c *TagusCompliance) SignLegalRegistrationNumber(options LegalRegistrationN
 
 func (c *TagusCompliance) SignTermsAndConditions(id string) (*vcTypes.VerifiableCredential, error) {
 	tc := &vcTypes.TermsAndConditions2210Struct{
-		Context:              vcTypes.Context{Context: []string{trustFrameWorkURL}},
+		Context:              vcTypes.Context{Context: []vcTypes.Namespace{trustFrameworkNamespace}},
 		Type:                 "gx:GaiaXTermsAndConditions",
 		GxTermsAndConditions: "The PARTICIPANT signing the Self-Description agrees as follows:\n- to update its descriptions about any changes, be it technical, organizational, or legal - especially but not limited to contractual in regards to the indicated attributes present in the descriptions.\n\nThe keypair used to sign Verifiable Credentials will be revoked where Gaia-X Association becomes aware of any inaccurate statements in regards to the claims which result in a non-compliance with the Trust Framework and policy rules defined in the Policy Rules and Labelling Document (PRLD).",
 		ID:                   id,
@@ -258,10 +258,10 @@ func (c *TagusCompliance) SignTermsAndConditions(id string) (*vcTypes.Verifiable
 	}
 
 	vc := &vcTypes.VerifiableCredential{
-		Context: vcTypes.Context{Context: []string{
+		Context: vcTypes.Context{Context: []vcTypes.Namespace{
 			vcTypes.W3Credentials,
-			"https://w3id.org/security/suites/jws-2020/v1",
-			trustFrameWorkURL,
+			vcTypes.SecuritySuitesJWS2020,
+			trustFrameworkNamespace,
 		}},
 		Type:              vcTypes.VCType{Types: []string{"VerifiableCredential"}},
 		IssuanceDate:      time.Now().UTC().Format(time.RFC3339),
@@ -323,10 +323,10 @@ func (c *TagusCompliance) SignTermsAndConditions(id string) (*vcTypes.Verifiable
 
 func (c *TagusCompliance) SelfSignCredentialSubject(id string, credentialSubject []map[string]interface{}) (*vcTypes.VerifiableCredential, error) {
 	vc := &vcTypes.VerifiableCredential{
-		Context: vcTypes.Context{Context: []string{
+		Context: vcTypes.Context{Context: []vcTypes.Namespace{
 			vcTypes.W3Credentials,
-			"https://w3id.org/security/suites/jws-2020/v1",
-			trustFrameWorkURL,
+			vcTypes.SecuritySuitesJWS2020,
+			trustFrameworkNamespace,
 		}},
 		Type:              vcTypes.VCType{Types: []string{"VerifiableCredential"}},
 		IssuanceDate:      time.Now().UTC().Format(time.RFC3339),
@@ -407,7 +407,7 @@ func (c *TagusCompliance) GaiaXSignParticipant(options ParticipantComplianceOpti
 
 func (c *TagusCompliance) SelfSignSignTermsAndConditions(id string) (*vcTypes.VerifiableCredential, error) {
 	tc := &vcTypes.TermsAndConditions2210Struct{
-		Context:              vcTypes.Context{Context: []string{trustFrameWorkURL}},
+		Context:              vcTypes.Context{Context: []vcTypes.Namespace{trustFrameworkNamespace}},
 		Type:                 "gx:GaiaXTermsAndConditions",
 		GxTermsAndConditions: "The PARTICIPANT signing the Self-Description agrees as follows:\n- to update its descriptions about any changes, be it technical, organizational, or legal - especially but not limited to contractual in regards to the indicated attributes present in the descriptions.\n\nThe keypair used to sign Verifiable Credentials will be revoked where Gaia-X Association becomes aware of any inaccurate statements in regards to the claims which result in a non-compliance with the Trust Framework and policy rules defined in the Policy Rules and Labelling Document (PRLD).",
 		ID:                   id,
@@ -426,10 +426,10 @@ func (c *TagusCompliance) SelfSignSignTermsAndConditions(id string) (*vcTypes.Ve
 	}
 
 	vc := &vcTypes.VerifiableCredential{
-		Context: vcTypes.Context{Context: []string{
+		Context: vcTypes.Context{Context: []vcTypes.Namespace{
 			vcTypes.W3Credentials,
-			"https://w3id.org/security/suites/jws-2020/v1",
-			trustFrameWorkURL,
+			vcTypes.SecuritySuitesJWS2020,
+			trustFrameworkNamespace,
 		}},
 		Type:              vcTypes.VCType{Types: []string{"VerifiableCredential"}},
 		IssuanceDate:      time.Now().UTC().Format(time.RFC3339),

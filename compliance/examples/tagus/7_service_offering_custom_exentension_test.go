@@ -7,6 +7,7 @@ package loire
 
 import (
 	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/compliance"
+	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/verifiableCredentials"
 	"testing"
 )
 
@@ -103,7 +104,7 @@ func TestCompliantServiceOfferingWithResourceAndExtension(t *testing.T) {
 		Id: "https://some-acme-offering.org",
 		ServiceOfferingOptions: compliance.ServiceOfferingOptionsAsMap{
 			ServiceOfferingCredentialSubject: oc,
-			CustomContext:                    []string{"https://schema.org/version/latest/schemaorg-current-https.jsonld"},
+			CustomContext:                    []verifiableCredentials.Namespace{{"", "https://schema.org/version/latest/schemaorg-current-https.jsonld"}},
 		},
 		ParticipantComplianceOptions: compliance.ParticipantComplianceOptions{
 			Id: "https://acme.org",
@@ -155,7 +156,7 @@ func TestCompliantServiceOfferingWithResourceAndExtension(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sign.Context.Context = append(sign.Context.Context, "https://schema.org/version/latest/schemaorg-current-https.jsonld")
+	sign.Context.Context = append(sign.Context.Context, verifiableCredentials.Namespace{"", "https://schema.org/version/latest/schemaorg-current-https.jsonld"})
 
 	err = connector.ReSelfSign(sign)
 	if err != nil {

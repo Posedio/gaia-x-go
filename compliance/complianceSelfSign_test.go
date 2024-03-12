@@ -149,6 +149,8 @@ func TestSign(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	t.Log(vc)
+
 	n, err := vc.CanonizeGo()
 	if err != nil {
 		t.Fatal(err)

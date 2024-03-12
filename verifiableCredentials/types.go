@@ -31,8 +31,19 @@ import (
 	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/did"
 )
 
-const W3Credentials = "https://www.w3.org/2018/credentials/v1"
-const SecuritySuitesJWS2020 = "https://w3id.org/security/suites/jws-2020/v1"
+const W3CredentialsUrl = "https://www.w3.org/2018/credentials/v1"
+
+var W3Credentials = Namespace{
+	Namespace: "",
+	URL:       W3CredentialsUrl,
+}
+
+const SecuritySuitesJWS2020Url = "https://w3id.org/security/suites/jws-2020/v1"
+
+var SecuritySuitesJWS2020 = Namespace{
+	Namespace: "",
+	URL:       SecuritySuitesJWS2020Url,
+}
 
 // VerifiablePresentation implements the shape of a verifiable presentation as defined in: https://www.w3.org/TR/vc-data-model/#presentations
 // since Gaia-X has not defined a proof method yet, this is still open
@@ -45,7 +56,7 @@ type VerifiablePresentation struct {
 
 func NewEmptyVerifiablePresentation() *VerifiablePresentation {
 	return &VerifiablePresentation{
-		Context:              W3Credentials,
+		Context:              W3CredentialsUrl,
 		Type:                 "VerifiablePresentation",
 		VerifiableCredential: make([]*VerifiableCredential, 0),
 		Proof:                nil,
@@ -98,7 +109,7 @@ func NewEmptyVerifiableCredential() *VerifiableCredential {
 	// only a valid vc with the context
 	vc.Context = Context{
 		wasSlice: true,
-		Context:  []string{W3Credentials},
+		Context:  []Namespace{W3Credentials},
 	}
 
 	// only a valid vc with type set
@@ -413,42 +424,102 @@ func (c *VerifiableCredential) String() string {
 	return string(marshal)
 }
 
+type Namespace struct {
+	Namespace string
+	URL       string
+}
+
+func (c *Namespace) MarshalJSON() ([]byte, error) {
+	if c.Namespace == "" {
+		return json.Marshal(c.URL)
+	}
+	return json.Marshal(c)
+}
+
 type Context struct {
-	Context  []string
+	Context  []Namespace
 	wasSlice bool
 }
 
 func (c *Context) MarshalJSON() ([]byte, error) {
 	if len(c.Context) == 1 && !c.wasSlice {
-		credential, err := json.Marshal(c.Context[0])
-		if err != nil {
-			return nil, err
+		if c.Context[0].Namespace == "" {
+			return json.Marshal(c.Context[0].URL)
 		}
-		return credential, nil
+		return json.Marshal(c.Context[0])
 	}
-	var x []string
-	x = c.Context
-	credentials, err := json.Marshal(x)
+	var x []interface{}
+
+	for _, i := range c.Context {
+		if i.Namespace == "" {
+			x = append(x, i.URL)
+		} else {
+			x = append(x, i)
+		}
+	}
+	b, err := json.Marshal(x)
 	if err != nil {
 		return nil, err
 	}
-	return credentials, nil
+	/*
+
+		x = c.Context
+		credentials, err := json.Marshal(x)
+		if err != nil {
+			return nil, err
+		}
+
+	*/
+	return b, nil
 }
 
 func (c *Context) UnmarshalJSON(dat []byte) error {
-	var css []string
-	err := json.Unmarshal(dat, &css)
+	var ns []Namespace
+	err := json.Unmarshal(dat, &ns)
 	if err != nil {
+		ns = ns[:0]
 		var co string
 		err = json.Unmarshal(dat, &co)
 		if err != nil {
-			return err
+			var nss []interface{}
+			err = json.Unmarshal(dat, &nss)
+			if err != nil {
+				return err
+			}
+			for _, ele := range nss {
+				n, k := ele.(map[string]string)
+				if k {
+					for k, e := range n {
+						ns = append(ns, Namespace{
+							Namespace: k,
+							URL:       e,
+						})
+					}
+
+				}
+				s, k := ele.(string)
+				if k {
+					ns = append(ns, Namespace{
+						Namespace: "",
+						URL:       s,
+					})
+				} else {
+					return errors.New("context not correctly defined")
+				}
+			}
+			c.Context = ns
+			c.wasSlice = true
+
+			return nil
 		}
-		css = append(css, co)
-		c.Context = css
+		ns = append(ns, Namespace{
+			Namespace: "",
+			URL:       co,
+		})
+		c.Context = ns
 		c.wasSlice = false
 	} else {
-		c.Context = css
+		c.Context = ns
 		c.wasSlice = true
 	}
 	return nil

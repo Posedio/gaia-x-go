@@ -8,6 +8,7 @@ package compliance
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -48,7 +49,7 @@ const (
 	ArubaV1Notary   RegistrationNumberUrl = "https://gx-notary.aruba.it/v1/registrationNumberVC"
 	TSystemV1Notary RegistrationNumberUrl = "https://gx-notary.gxdch.dih.telekom.com/v1/registrationNumberVC"
 	LabV1Notary     RegistrationNumberUrl = "https://registrationnumber.notary.lab.gaia-x.eu/v1/registrationNumberVC"
-	AireV1Notary    RegistrationNumberUrl = "https://gx-registry.airenetworks.es/v1/registrationNumberVC"
+	AireV1Notary    RegistrationNumberUrl = "https://gx-notary.airenetworks.es/v1//registrationNumberVC"
 )
 
 func (rn RegistrationNumberUrl) String() string {
@@ -85,7 +86,18 @@ const (
 )
 
 var trustFrameWorkURL = "https://registry.lab.gaia-x.eu/development/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#"
+
+var trustFrameworkNamespace = vcTypes.Namespace{
+	Namespace: "",
+	URL:       trustFrameWorkURL,
+}
+
 var participantURL = "https://registry.lab.gaia-x.eu/development/api/trusted-shape-registry/v1/shapes/jsonld/participant"
+
+var participantNamespace = vcTypes.Namespace{
+	Namespace: "",
+	URL:       participantURL,
+}
 
 func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl RegistrationNumberUrl, version string, key jwk.Key, issuer string, verificationMethod string) (Compliance, error) {
 	if version == "22.10" || version == "tagus" || version == "Tagus" {
@@ -141,6 +153,7 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 
 		return c, nil
 	} else if version == "23.10" || version == "loire" || version == "Loire" {
+		log.Println("loire is experimental only")
 		var didResolved *did.DID
 		if issuer != "" || key != nil || verificationMethod != "" {
 			var err error
@@ -303,20 +316,20 @@ type ParticipantOptionsAsMap struct {
 
 func (pm ParticipantOptionsAsMap) BuildParticipantVC(id string) (*vcTypes.VerifiableCredential, error) {
 	vc := vcTypes.NewEmptyVerifiableCredential()
-	vc.Context.Context = append(vc.Context.Context, vcTypes.SecuritySuitesJWS2020, trustFrameWorkURL)
+	vc.Context.Context = append(vc.Context.Context, vcTypes.SecuritySuitesJWS2020, trustFrameworkNamespace)
 	vc.ID = id
 	vc.CredentialSubject.CredentialSubject = pm.ParticipantCredentialSubject
 	return vc, nil
 }
 
 type ServiceOfferingOptionsAsMap struct {
-	CustomContext                    []string
+	CustomContext                    []vcTypes.Namespace
 	ServiceOfferingCredentialSubject []map[string]interface{}
 }
 
 func (sm ServiceOfferingOptionsAsMap) BuildServiceOfferingVC(id string) (*vcTypes.VerifiableCredential, error) {
 	vc := vcTypes.NewEmptyVerifiableCredential()
-	vc.Context.Context = append(vc.Context.Context, vcTypes.SecuritySuitesJWS2020, trustFrameWorkURL)
+	vc.Context.Context = append(vc.Context.Context, vcTypes.SecuritySuitesJWS2020, trustFrameworkNamespace)
 	if sm.CustomContext != nil {
 		vc.Context.Context = append(vc.Context.Context, sm.CustomContext...)
 	}
