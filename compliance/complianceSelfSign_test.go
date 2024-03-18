@@ -27,7 +27,7 @@ var signUrlB = V1Staging
 var exSD2210 = map[string]interface{}{
 	"@context": []interface{}{
 		"https://www.w3.org/2018/credentials/v1",
-		"https://registry.lab.gaia-x.eu//main/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#",
+		"https://registry.lab.gaia-x.eu/development/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#",
 	},
 	"type": []interface{}{
 		"VerifiableCredential",
@@ -68,7 +68,7 @@ var exampleSD2210 = `
 {
     "@context": [
         "https://www.w3.org/2018/credentials/v1",
-        "https://registry.lab.gaia-x.eu//main/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#"
+        "https://registry.lab.gaia-x.eu/development/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#"
     ],
     "type": [
         "VerifiableCredential"
