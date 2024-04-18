@@ -8,6 +8,7 @@ package compliance
 import (
 	"errors"
 	"fmt"
+	"github.com/hashicorp/go-retryablehttp"
 	"net/http"
 	"time"
 
@@ -91,6 +92,16 @@ var participantURL = "https://registry.lab.gaia-x.eu/development/api/trusted-sha
 // Deprecated: should not be used anymore since normalization is now done in go directly and NewComplianceConnector implements more checks
 func NewCompliance(_ string, signUrl ServiceUrl, version string, key jwk.Key, issuer string, verificationMethod string) (Compliance, error) {
 	if version == "22.10" {
+
+		retryClient := retryablehttp.NewClient()
+		retryClient.RetryMax = 10
+		retryClient.RetryWaitMax = 4000 * time.Millisecond
+		retryClient.HTTPClient.Timeout = 3500 * time.Millisecond
+		retryClient.Logger = nil
+		retryClient.CheckRetry = vcTypes.DefaultRetryPolicy
+
+		hc := retryClient.StandardClient()
+
 		c := &Compliance2210{
 			signUrl:               signUrl,
 			version:               version,
@@ -98,10 +109,8 @@ func NewCompliance(_ string, signUrl ServiceUrl, version string, key jwk.Key, is
 			issuer:                issuer,
 			registrationNumberUrl: ArubaV1Notary,
 			verificationMethod:    verificationMethod,
-			client: &http.Client{
-				Timeout: 20 * time.Second,
-			},
-			validate: validator.New(),
+			client:                hc,
+			validate:              validator.New(),
 		}
 		err := c.validate.RegisterValidation("validateRegistrationNumberType", ValidateRegistrationNumberType)
 		if err != nil {
@@ -135,6 +144,10 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 			k, ok := didResolved.Keys[verificationMethod]
 			if !ok {
 				return nil, fmt.Errorf("verification method %v not in the did %v", verificationMethod, issuer)
+			}
+
+			if key == nil {
+				return nil, errors.New("private key has to be set")
 			}
 
 			verifyKey, err := key.PublicKey()
