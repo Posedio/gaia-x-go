@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
-	"net/http"
 	"time"
 
 	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/did"
@@ -159,6 +158,15 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 			}
 		}
 
+		retryClient := retryablehttp.NewClient()
+		retryClient.RetryMax = 10
+		retryClient.RetryWaitMax = 4000 * time.Millisecond
+		retryClient.HTTPClient.Timeout = 3500 * time.Millisecond
+		retryClient.Logger = nil
+		retryClient.CheckRetry = vcTypes.DefaultRetryPolicy
+
+		hc := retryClient.StandardClient()
+
 		c := &Compliance2210{
 			signUrl:               signUrl,
 			version:               version,
@@ -166,11 +174,9 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 			issuer:                issuer,
 			registrationNumberUrl: registrationNumberUrl,
 			verificationMethod:    verificationMethod,
-			client: &http.Client{
-				Timeout: 20 * time.Second,
-			},
-			did:      didResolved,
-			validate: validator.New(),
+			client:                hc,
+			did:                   didResolved,
+			validate:              validator.New(),
 		}
 
 		err := c.validate.RegisterValidation("validateRegistrationNumberType", ValidateRegistrationNumberType)
