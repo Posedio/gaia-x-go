@@ -159,10 +159,10 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 		}
 
 		retryClient := retryablehttp.NewClient()
-		retryClient.RetryMax = 10
-		retryClient.RetryWaitMax = 4000 * time.Millisecond
-		retryClient.HTTPClient.Timeout = 3500 * time.Millisecond
-		retryClient.Logger = nil
+		retryClient.RetryMax = 3
+		retryClient.RetryWaitMax = 22 * time.Millisecond
+		retryClient.HTTPClient.Timeout = 20 * time.Second
+		//retryClient.Logger = nil
 		retryClient.CheckRetry = vcTypes.DefaultRetryPolicy
 
 		hc := retryClient.StandardClient()
