@@ -66,9 +66,9 @@ const (
 	DevelopmentBranch ServiceUrl = "https://compliance.lab.gaia-x.eu/development/api/credential-offers"
 	V1Branch          ServiceUrl = "https://compliance.lab.gaia-x.eu/v1/api/credential-offers"
 	V1Staging         ServiceUrl = "https://compliance.lab.gaia-x.eu/v1-staging/api/credential-offers"
-	AireV1            ServiceUrl = "https://gx-compliance.airenetworks.es/v1/credential-offer"
-	ArubaV1           ServiceUrl = "https://gx-compliance.aruba.it/v1/credential-offer"
-	TSystemsV1        ServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v1/credential-offer"
+	AireV1            ServiceUrl = "https://gx-compliance.airenetworks.es/v1/api/credential-offer"
+	ArubaV1           ServiceUrl = "https://gx-compliance.aruba.it/v1/api/credential-offer"
+	TSystemsV1        ServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v1/api/credential-offers"
 )
 
 type RegistryUrl string
