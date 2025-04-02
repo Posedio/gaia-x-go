@@ -1,6 +1,7 @@
 /*
 MIT License
-Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 */
 
 package loire
@@ -15,7 +16,7 @@ import (
 func TestFirstComplianceCredential(t *testing.T) {
 	// to retrieve the first Gaia-X credential, only the endpoint for the notary part of the Gaia-x Clearing Houses is needed
 	// rest can be empty for now. It is possible to choose from: compliance.LabV1, compliance.ArubaV1Notary and compliance.TSystemV1
-	connector, err := compliance.NewComplianceConnector("", compliance.TSystemV1Notary, "loire", nil, "", "")
+	connector, err := compliance.NewComplianceConnector("", compliance.ArsysV2Notary, "loire", nil, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

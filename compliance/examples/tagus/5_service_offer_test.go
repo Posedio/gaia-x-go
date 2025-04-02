@@ -1,8 +1,8 @@
 /*
 MIT License
-Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 */
-
 package loire
 
 import (
@@ -16,7 +16,7 @@ func TestCompliantServiceOffering(t *testing.T) {
 	privateKey := getKey(t)
 
 	// to establish a client we follow the steps we had already done
-	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, compliance.ArubaV1Notary, "tagus", privateKey, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
+	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, compliance.ArubaV1Notary, "tagus", privateKey, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
 	if err != nil {
 		t.Fatal(err)
 	}

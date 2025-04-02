@@ -103,6 +103,7 @@ func (s *Store) GetAllIndex() []string {
 	return index
 }
 
+// todo incude signature/proof
 func (s *Store) ToFile(path string, keyPhrase []byte) (err error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {

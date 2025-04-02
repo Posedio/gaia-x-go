@@ -1,6 +1,7 @@
 /*
 MIT License
-Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 */
 
 package verifiableCredentials
@@ -8,14 +9,13 @@ package verifiableCredentials
 import (
 	"bytes"
 	"crypto/sha256"
-	"crypto/x509"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 	"io"
 	"log"
 	"net/http"
@@ -32,10 +32,18 @@ import (
 )
 
 const W3CredentialsUrl = "https://www.w3.org/2018/credentials/v1"
+const W3CCredentialsUrlV2 = "https://www.w3.org/ns/credentials/v2"
+
+const W3CEnvelopedVerifiableCredential = "EnvelopedVerifiableCredential"
 
 var W3Credentials = Namespace{
 	Namespace: "",
 	URL:       W3CredentialsUrl,
+}
+
+var W3CredentialsV2 = Namespace{
+	Namespace: "",
+	URL:       W3CCredentialsUrlV2,
 }
 
 const SecuritySuitesJWS2020Url = "https://w3id.org/security/suites/jws-2020/v1"
@@ -52,11 +60,25 @@ type VerifiablePresentation struct {
 	Type                 string                  `json:"type" validate:"required"`
 	VerifiableCredential []*VerifiableCredential `json:"verifiableCredential" validate:"required"`
 	Proof                *Proofs                 `json:"proof,omitempty"`
+	Issuer               string                  `json:"issuer,omitempty,omitzero" validate:"omitempty"`
+	ValidFrom            time.Time               `json:"validFrom,omitzero" validate:"omitempty"`
+	ValidUntil           time.Time               `json:"validUntil,omitzero" validate:"omitempty"`
+	signature            *JWSSignature
+	decodedCredentials   []*VerifiableCredential
 }
 
 func NewEmptyVerifiablePresentation() *VerifiablePresentation {
 	return &VerifiablePresentation{
 		Context:              W3CredentialsUrl,
+		Type:                 "VerifiablePresentation",
+		VerifiableCredential: make([]*VerifiableCredential, 0),
+		Proof:                nil,
+	}
+}
+
+func NewEmptyVerifiablePresentationV2() *VerifiablePresentation {
+	return &VerifiablePresentation{
+		Context:              W3CCredentialsUrlV2,
 		Type:                 "VerifiablePresentation",
 		VerifiableCredential: make([]*VerifiableCredential, 0),
 		Proof:                nil,
@@ -103,6 +125,51 @@ func (vp *VerifiablePresentation) ToBase64() (string, error) {
 	return base64.StdEncoding.EncodeToString(toJson), nil
 }
 
+func (vp *VerifiablePresentation) AddEnvelopedVC(jws []byte) {
+	vp.VerifiableCredential = append(vp.VerifiableCredential, &VerifiableCredential{
+		Context: Context{
+			wasSlice: false,
+			Context: []Namespace{{
+				Namespace: "",
+				URL:       "https://www.w3.org/ns/credentials/v2",
+			}},
+		},
+		Type: VCType{
+			wasSlice: false,
+			Types:    []string{W3CEnvelopedVerifiableCredential},
+		},
+		ID: "data:application/vc+jwt," + string(jws),
+	})
+}
+
+func (vp *VerifiablePresentation) DecodeEnvelopedCredentials() ([]*VerifiableCredential, error) {
+	if vp.decodedCredentials == nil {
+		vp.decodedCredentials = make([]*VerifiableCredential, len(vp.VerifiableCredential))
+	}
+	for i, vc := range vp.VerifiableCredential {
+		v := new(VerifiableCredential)
+		var err error
+		if vc.GetOriginalJWS() != nil {
+			v, err = VCFromJWT(vc.GetOriginalJWS())
+		} else if slices.Contains(vc.Type.Types, W3CEnvelopedVerifiableCredential) {
+			jwt, err := JWTFromID(vc.ID)
+			if err != nil {
+				return nil, err
+			}
+			v, err = VCFromJWT(jwt)
+		} else if slices.Contains(vc.Type.Types, "VerifiableCredential") { //todo untested
+			v = vc
+		} else {
+			return nil, fmt.Errorf("invalid VC at index: %v", i)
+		}
+		if err != nil {
+			return nil, err
+		}
+		vp.decodedCredentials[i] = v
+	}
+	return vp.decodedCredentials, nil
+}
+
 func NewEmptyVerifiableCredential() *VerifiableCredential {
 	vc := &VerifiableCredential{}
 
@@ -126,26 +193,127 @@ func NewEmptyVerifiableCredential() *VerifiableCredential {
 	return vc
 }
 
+func NewEmptyVerifiableCredentialV2(options ...VerifiableCredentialOption) (*VerifiableCredential, error) {
+	vc := &VerifiableCredential{}
+
+	// only a valid vc with the context
+	vc.Context = Context{
+		wasSlice: true,
+		Context:  []Namespace{W3CredentialsV2},
+	}
+
+	// only a valid vc with type set
+	vc.Type = VCType{
+		wasSlice: true,
+		Types:    []string{"VerifiableCredential"},
+	}
+
+	vc.CredentialSubject = CredentialSubject{
+		CredentialSubject: make([]map[string]interface{}, 0),
+	}
+	vc.Proof = nil
+
+	for _, option := range options {
+		err := option.apply(vc)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return vc, nil
+}
+
+type VerifiableCredentialOption interface {
+	apply(option *VerifiableCredential) error
+}
+
+type baseVCOption struct {
+	f func(vc *VerifiableCredential) error
+}
+
+func (vco *baseVCOption) apply(option *VerifiableCredential) error {
+	return vco.f(option)
+}
+
+func WithVCID(id string) VerifiableCredentialOption {
+	return &baseVCOption{
+		f: func(vc *VerifiableCredential) error {
+			vc.ID = id
+			return nil
+		},
+	}
+}
+
+func WithValidFromNow() VerifiableCredentialOption {
+	return &baseVCOption{
+		f: func(vc *VerifiableCredential) error {
+			vc.ValidFrom = time.Now()
+			return nil
+		},
+	}
+}
+
+func WithAdditionalTypes(types ...string) VerifiableCredentialOption {
+	return &baseVCOption{
+		f: func(vc *VerifiableCredential) error {
+			for _, t := range types {
+				vc.Type.Types = append(vc.Type.Types, t)
+			}
+			return nil
+		},
+	}
+}
+
+func WithIssuer(issuer string) VerifiableCredentialOption {
+	return &baseVCOption{
+		f: func(vc *VerifiableCredential) error {
+			vc.Issuer = issuer
+			return nil
+		},
+	}
+}
+
+func WithGaiaXContext() VerifiableCredentialOption {
+	return &baseVCOption{
+		f: func(vc *VerifiableCredential) error {
+			vc.Context.Context = append(vc.Context.Context, Namespace{
+				Namespace: "",
+				URL:       "https://w3id.org/gaia-x/development#",
+			})
+			return nil
+		},
+	}
+}
+
+const JWTType = "vc+ld+jwt"
+const JWTCTY = "vc+ld"
+
+type JWSSignature struct {
+	OriginalJWT []byte
+	DID         *did.DID
+	JWTHeader   *JWTHeader
+}
+
 // VerifiableCredential implements the shape of a VC as defined in https://www.w3.org/TR/vc-data-model/#basic-concepts
 type VerifiableCredential struct {
 	Context           Context           `json:"@context" validate:"required"`
 	Type              VCType            `json:"type" validate:"required"`
-	IssuanceDate      string            `json:"issuanceDate" validate:"required"`
-	ExpirationDate    string            `json:"expirationDate,omitempty"`
-	CredentialSubject CredentialSubject `json:"credentialSubject,omitempty"`
-	Issuer            string            `json:"issuer" validate:"required"`
+	IssuanceDate      string            `json:"issuanceDate,omitempty,omitzero" validate:"omitempty"`
+	ExpirationDate    string            `json:"expirationDate,omitempty,omitzero"`
+	CredentialSubject CredentialSubject `json:"credentialSubject,omitempty,omitzero" validate:"omitempty"`
+	Issuer            string            `json:"issuer,omitzero" validate:"omitempty"`
 	ID                string            `json:"id" validate:"required"`
+	ValidFrom         time.Time         `json:"validFrom,omitzero" validate:"omitempty"`
+	ValidUntil        time.Time         `json:"validUntil,omitzero" validate:"omitempty"`
+	Name              string            `json:"name,omitempty" validate:"omitempty"`
 	Proof             *Proofs           `json:"proof,omitempty"`
-	Evidence          []struct {
-		GxEvidenceURL   string `json:"gx:evidenceURL,omitempty"`
-		GxExecutionDate string `json:"gx:executionDate,omitempty"`
-		GxEvidenceOf    string `json:"gx:evidenceOf,omitempty"`
-	} `json:"evidence,omitempty"`
-	proc          *ld.JsonLdProcessor
-	Options       *ld.JsonLdOptions `json:"-"`
-	mux           sync.Mutex
-	once          sync.Once
-	verifyOptions verifyOptions
+	Evidence          any               `json:"evidence,omitempty"`
+	proc              *ld.JsonLdProcessor
+	Options           *ld.JsonLdOptions `json:"-"`
+	mux               sync.Mutex
+	once              sync.Once
+	signature         *JWSSignature
+	//verifyOptions     verifyOptions
 }
 
 func (c *VerifiableCredential) ToMap() (map[string]interface{}, error) {
@@ -183,14 +351,155 @@ func (c *VerifiableCredential) Validate(validate *validator.Validate) error {
 	return validate.Struct(c)
 }
 
+func (c *VerifiableCredential) GetOriginalJWS() []byte {
+	if c.signature != nil {
+		return c.signature.OriginalJWT
+	}
+	return nil
+}
+
+func (c *VerifiableCredential) AddSignature(originalJWS []byte) error {
+	dids, err := VerifyJWS(originalJWS)
+	if err != nil {
+		return err
+	}
+	var signaturesErr error
+
+	for didweb, header := range dids {
+		key, k := didweb.Keys[header.KID]
+		if !k {
+			signaturesErr = errors.Join(signaturesErr, fmt.Errorf("key %v not in did web %v", header.KID, header.Issuer))
+			continue
+		}
+
+		payload, err := jws.Verify(originalJWS, jws.WithKey(header.Algorithm, key.JWK))
+		if err != nil {
+			signaturesErr = errors.Join(signaturesErr, err)
+			continue
+		}
+
+		vc := &VerifiableCredential{}
+
+		err = json.Unmarshal(payload, vc)
+		if err != nil {
+			signaturesErr = errors.Join(signaturesErr, err)
+			continue
+		}
+		c.signature = &JWSSignature{
+			OriginalJWT: originalJWS,
+			DID:         didweb,
+			JWTHeader:   header,
+		}
+
+		return nil
+	}
+	return signaturesErr
+}
+
 func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
+	if c.Proof == nil && c.signature == nil {
+		return errors.New("verifiableCredential does neither have a signature nor a proof")
+	}
 	vO := &verifyOptions{}
 
-	for _, o := range options {
-		err := o.apply(vO)
+	if options != nil {
+		for _, o := range options {
+			if o != nil {
+				err := o.apply(vO)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	if c.signature != nil {
+		//make sure did is still valid
+		web, err := did.ResolveDIDWeb(c.signature.DID.Id)
 		if err != nil {
 			return err
 		}
+		err = web.ResolveMethods()
+		if err != nil {
+			return err
+		}
+		c.signature.DID = web
+
+		key, k := c.signature.DID.Keys[c.signature.JWTHeader.KID]
+		if !k {
+			return errors.New("the KID from the JWT header does not match any key from the issuer DID")
+		}
+		cert, err := VerifyCertChain(key.JWK.X509URL())
+		if err != nil {
+			return err
+		}
+
+		host, err := c.signature.DID.GetHost()
+		if err != nil {
+			return err
+		}
+		if !slices.Contains(cert.DNSNames, host) {
+			return fmt.Errorf("host %v not in the list of allowed DNS Names %v of the provided DID x509 certificate", host, cert.DNSNames)
+		}
+
+		_, err = jws.Verify(c.signature.OriginalJWT, jws.WithKey(c.signature.JWTHeader.Algorithm, key.JWK))
+		if err != nil {
+			return fmt.Errorf("verifiableCredential signature is invalid: %w", err)
+		}
+
+		if !(c.signature.JWTHeader.TYP == JWTType || c.signature.JWTHeader.TYP == "vc+jwt") {
+			return fmt.Errorf("verifiableCredential signature header does not have the correct type of JWT")
+		}
+
+		if !(c.signature.JWTHeader.CTY == JWTCTY || c.signature.JWTHeader.CTY == "vc") {
+			return fmt.Errorf("verifiableCredential signature header does not have the correct cty")
+		}
+
+		now := time.Now()
+
+		if now.UnixMilli() < c.signature.JWTHeader.IAT.UnixMilli() {
+			return fmt.Errorf("verifiableCredential issuance date is in the future")
+		}
+		if now.UnixMilli() > c.signature.JWTHeader.EXP.UnixMilli() {
+			return fmt.Errorf("verifiableCredential not valid anymore")
+		}
+
+		if !c.ValidUntil.IsZero() {
+			if !c.ValidUntil.After(now) {
+				return fmt.Errorf("verifiableCredential is expired")
+			}
+		}
+
+		if !c.ValidFrom.IsZero() {
+			if c.ValidFrom.After(now) {
+				return fmt.Errorf("verifiableCredential is not valid yet")
+			}
+		}
+
+		// Todo make optional Issuer is not required by GX in the Headers
+		if c.Issuer != c.signature.JWTHeader.Issuer {
+			return fmt.Errorf("credential issuer does not match JTW issuer")
+		}
+
+		if vO.isTrustedIssuer {
+			get, err := http.Get("https://gx-registry.gxdch.dih.telekom.com/v2/api/trusted-issuers")
+			if err != nil {
+				return err
+			}
+			defer get.Body.Close()
+			all, err := io.ReadAll(get.Body)
+			if err != nil {
+				return err
+			}
+
+			// todo make it to option, check on path v1/v2...
+			if !strings.Contains(string(all), host) {
+				log.Println(string(all))
+				return errors.New("is not a trusted gx issuer")
+			}
+		}
+
+		return nil
 	}
 
 	for _, proof := range c.Proof.Proofs {
@@ -249,8 +558,6 @@ func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
 
 		k := key.JWK
 
-		//log.Println(k.X509URL())
-
 		_, err = VerifyCertChain(k.X509URL())
 		if err != nil {
 			log.Println(err)
@@ -276,77 +583,6 @@ func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
 		return nil
 	}
 	return errors.New("has no proof")
-}
-
-func VerifyCertChain(url string) (*x509.Certificate, error) {
-	c := http.Client{Timeout: time.Second * 2}
-	request, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	do, err := c.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	if do.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("cert not loadable: %v", do.Status)
-	}
-	certBytes, err := io.ReadAll(do.Body)
-	if err != nil {
-		return nil, err
-	}
-	block, next := pem.Decode(certBytes)
-	if block == nil {
-		return nil, errors.New("empty certificate block or malformed certificate ")
-	}
-
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return nil, err
-	}
-
-	roots, err := x509.SystemCertPool()
-	if err != nil {
-		return nil, err
-	}
-
-	for {
-		block, next = pem.Decode(next)
-		if block == nil {
-			break
-		}
-
-		inter, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			return nil, err
-		}
-
-		//todo check /v1/api/trustAnchor/chain/file
-
-		roots.AddCert(inter)
-		if len(next) == 0 {
-			break
-		}
-	}
-
-	log.Printf("the domains %v, are singed from %v and are valid till %v and owned by %v", cert.DNSNames, cert.Issuer, cert.NotAfter, cert.Subject.String())
-
-	if cert.KeyUsage&x509.KeyUsageDigitalSignature == 0 {
-		log.Println("certificate does not allow digital signature")
-	}
-
-	_, err = cert.Verify(x509.VerifyOptions{
-		Roots: roots,
-	})
-	if err != nil {
-		_, err = cert.Verify(x509.VerifyOptions{})
-		if err != nil {
-			return nil, err
-		}
-
-	}
-
-	return cert, nil
 }
 
 func (c *VerifiableCredential) setupJsonLdProcessor() {
@@ -424,6 +660,15 @@ func (c *VerifiableCredential) String() string {
 	return string(marshal)
 }
 
+func (c *VerifiableCredential) AddToCredentialSubject(obj any) error {
+	m, err := toMap(obj)
+	if err != nil {
+		return err
+	}
+	c.CredentialSubject.CredentialSubject = append(c.CredentialSubject.CredentialSubject, m)
+	return nil
+}
+
 type Namespace struct {
 	Namespace string
 	URL       string
@@ -461,15 +706,6 @@ func (c *Context) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	/*
-
-		x = c.Context
-		credentials, err := json.Marshal(x)
-		if err != nil {
-			return nil, err
-		}
-
-	*/
 	return b, nil
 }
 
@@ -715,11 +951,23 @@ type verifyOptions struct {
 	useOldSignature       bool
 	retryWithOldSignature bool
 	mux                   sync.RWMutex
+	isTrustedIssuer       bool
+	notary                string
 }
 
 func UseOldSignAlgorithm() *VerifyOption {
 	return &VerifyOption{f: func(option *verifyOptions) error {
 		option.useOldSignature = true
+		return nil
+	}}
+}
+
+func IsGaiaXTrustedIssuer(notary string) *VerifyOption {
+	return &VerifyOption{f: func(option *verifyOptions) error {
+		if notary == "" {
+			notary = "https://gx-registry.gxdch.dih.telekom.com/v2/api/trusted-issuers"
+		}
+		option.isTrustedIssuer = true
 		return nil
 	}}
 }
@@ -732,6 +980,30 @@ func retryWithOldSignAlgorithm() *VerifyOption {
 	}}
 }
 
+type UnixTimeMilli struct {
+	time.Time
+}
+
+func (t *UnixTimeMilli) UnmarshalJSON(dat []byte) error {
+	var ts int64
+	err := json.Unmarshal(dat, &ts)
+	if err != nil {
+		return err
+	}
+	t.Time = time.UnixMilli(ts)
+	return nil
+}
+
+type JWTHeader struct {
+	Algorithm jwa.SignatureAlgorithm `json:"alg"`
+	Issuer    string                 `json:"iss"`
+	KID       string                 `json:"kid"`
+	IAT       UnixTimeMilli          `json:"iat,omitempty,omitzero"`
+	EXP       UnixTimeMilli          `json:"exp,omitempty,omitzero"`
+	CTY       string                 `json:"cty"`
+	TYP       string                 `json:"typ"`
+}
+
 func EncodeToString(hash []byte) string {
 	return hex.EncodeToString(hash[:])
 }
@@ -739,4 +1011,10 @@ func EncodeToString(hash []byte) string {
 func GenerateHash(b []byte) []byte {
 	h := sha256.Sum256(b)
 	return h[:]
+}
+
+type CredentialSubjectShape struct {
+	ID string `json:"@id,omitempty"`
+	// option to provide Types
+	Type string `json:"@type,omitempty,omitzero"`
 }

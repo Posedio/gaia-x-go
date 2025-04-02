@@ -1,8 +1,8 @@
 /*
 MIT License
-Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 */
-
 package loire
 
 import (
@@ -17,15 +17,15 @@ func TestCompliantParticipant(t *testing.T) {
 	privateKey := getKey(t)
 
 	// to establish a client we follow the steps we had already done
-	connector, err := compliance.NewComplianceConnector(compliance.DevelopmentBranch, compliance.ArubaV1Notary, "tagus", privateKey, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
+	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, compliance.ArubaV1Notary, "tagus", privateKey, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	lrnOptions := compliance.LegalRegistrationNumberOptions{
-		Id:                 "http://lrn.test", // Id for the VerifiableCredential that it can be unique identified
-		RegistrationNumber: "FR79537407926",   // Legal Registration Number in this case the on of the GAIA-X AISBL
-		Type:               compliance.VatID,  // Type of the Legal Registration NUmber see List above
+		Id:                 "http://lrn.test",      // Id for the VerifiableCredential that it can be unique identified
+		RegistrationNumber: "98450045E09C7F5A0703", // Legal Registration Number in this case the on of the GAIA-X AISBL
+		Type:               compliance.LeiCode,     // Type of the Legal Registration NUmber see List above
 	}
 
 	// retrieve the Legal Registration Number VC with the provided options

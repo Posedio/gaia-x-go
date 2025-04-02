@@ -1,6 +1,7 @@
 /*
 MIT License
-Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 */
 
 package did
@@ -9,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	"strings"
 )
 
 /*
@@ -81,6 +83,21 @@ func (did *DID) ResolveMethods() error {
 	}
 
 	return nil
+}
+
+func (did *DID) GetHost() (string, error) {
+	split := strings.Split(did.Id, ":")
+	//verify
+	if len(split) < 3 {
+		return "", errors.New("did must contain a host name")
+	}
+	if split[0] != "did" {
+		return "", errors.New("DID must start with 'did'")
+	}
+	if split[1] == "" {
+		return "", errors.New("DID must include a method")
+	}
+	return split[2], nil
 }
 
 func (did *DID) resolveJWK(vms VerificationMethods, method Method) error {

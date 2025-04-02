@@ -1,6 +1,7 @@
 /*
 MIT License
-Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 */
 
 package loire
@@ -21,7 +22,7 @@ func TestSignTermsAndConditions(t *testing.T) {
 	// as described above a private key with a public key that is signed by a qualified trust anchor is needed
 	// as issuer a did as shown in 1_did is shown has to be provided
 	// since a did can have multiple verification methods one that is used have to be specified, obviously this has to be the qualified public key to the set private key.
-	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, "", "tagus", key, "did:web:vc.mivp.group", "did:web:vc.mivp.group#X509-JWK2020")
+	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, "", "tagus", key, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
 	if err != nil {
 		t.Fatal(err)
 	}

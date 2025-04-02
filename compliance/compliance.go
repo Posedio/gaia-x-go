@@ -1,6 +1,7 @@
 /*
 MIT License
-Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 */
 
 package compliance
@@ -8,7 +9,6 @@ package compliance
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -45,11 +45,14 @@ const (
 
 type RegistrationNumberUrl string
 
+// todo update
 const (
 	ArubaV1Notary   RegistrationNumberUrl = "https://gx-notary.aruba.it/v1/registrationNumberVC"
 	TSystemV1Notary RegistrationNumberUrl = "https://gx-notary.gxdch.dih.telekom.com/v1/registrationNumberVC"
+	TSystemV2Notary RegistrationNumberUrl = "https://gx-notary.gxdch.dih.telekom.com/v2/registration-numbers"
 	LabV1Notary     RegistrationNumberUrl = "https://registrationnumber.notary.lab.gaia-x.eu/v1/registrationNumberVC"
 	AireV1Notary    RegistrationNumberUrl = "https://gx-notary.airenetworks.es/v1//registrationNumberVC"
+	ArsysV2Notary   RegistrationNumberUrl = "https://gx-notary.arsys.es/v2/registration-numbers"
 )
 
 func (rn RegistrationNumberUrl) String() string {
@@ -62,14 +65,17 @@ func (su ServiceUrl) String() string {
 	return string(su)
 }
 
+// todo update
 const (
 	MainBranch        ServiceUrl = "https://compliance.lab.gaia-x.eu/main/api/credential-offers"
 	DevelopmentBranch ServiceUrl = "https://compliance.lab.gaia-x.eu/development/api/credential-offers"
 	V1Branch          ServiceUrl = "https://compliance.lab.gaia-x.eu/v1/api/credential-offers"
 	V1Staging         ServiceUrl = "https://compliance.lab.gaia-x.eu/v1-staging/api/credential-offers"
+	V2Staging         ServiceUrl = "https://compliance.lab.gaia-x.eu/main/api/credential-offers"
 	AireV1            ServiceUrl = "https://gx-compliance.airenetworks.es/v1/credential-offer"
 	ArubaV1           ServiceUrl = "https://gx-compliance.aruba.it/v1/credential-offer"
 	TSystemsV1        ServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v1/credential-offer"
+	TSystemsV2        ServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v2/api/credential-offers"
 )
 
 type RegistryUrl string
@@ -78,11 +84,25 @@ func (r RegistryUrl) String() string {
 	return string(r)
 }
 
+// todo update
 const (
 	AireRegistryV1     RegistryUrl = "https://gx-registry.airenetworks.es/v1/"
 	ArubaRegistryV1    RegistryUrl = "https://gx-registry.aruba.it/v1/"
 	TSystemsRegistryV1 RegistryUrl = "https://gx-registry.gxdch.dih.telekom.com/v1/"
 	RegistryV1         RegistryUrl = "https://registry.lab.gaia-x.eu/v1/docs"
+)
+
+type LabelLevel string
+
+func (l LabelLevel) String() string {
+	return string(l)
+}
+
+const (
+	Level0 LabelLevel = "standard-compliance"
+	Level1 LabelLevel = "label-level-1"
+	Level2 LabelLevel = "label-level-2"
+	Level3 LabelLevel = "label-level-3"
 )
 
 var trustFrameWorkURL = "https://registry.lab.gaia-x.eu/development/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#"
@@ -140,7 +160,7 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 			registrationNumberUrl: registrationNumberUrl,
 			verificationMethod:    verificationMethod,
 			client: &http.Client{
-				Timeout: 20 * time.Second,
+				Timeout: 50 * time.Second,
 			},
 			did:      didResolved,
 			validate: validator.New(),
@@ -152,8 +172,7 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 		}
 
 		return c, nil
-	} else if version == "23.10" || version == "loire" || version == "Loire" {
-		log.Println("loire is experimental only")
+	} else if version == "24.11" || version == "loire" || version == "Loire" {
 		var didResolved *did.DID
 		if issuer != "" || key != nil || verificationMethod != "" {
 			var err error
@@ -212,7 +231,7 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 
 type LegalRegistrationNumberOptions struct {
 	Id                 string                 `json:"id" validate:"required,uri"`
-	RegistrationNumber string                 `json:"registrationNumber" validate:"required,alphanumunicode"` //todo add Gaia-X json ontology
+	RegistrationNumber string                 `json:"registrationNumber" validate:"required,alphanumunicode"`
 	Type               RegistrationNumberType `json:"type" validate:"required,validateRegistrationNumberType"`
 }
 
@@ -239,6 +258,8 @@ type ServiceOfferingComplianceOptions struct {
 	Id                           string
 	ParticipantComplianceOptions ParticipantComplianceOptions
 	ServiceOfferingOptions       ServiceOfferingOptions
+	ServiceOfferingVP            *vcTypes.VerifiablePresentation
+	ServiceOfferingLabelLevel    LabelLevel
 	serviceOfferingVC            *vcTypes.VerifiableCredential
 }
 

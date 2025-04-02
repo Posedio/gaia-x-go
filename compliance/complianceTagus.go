@@ -1,6 +1,7 @@
 /*
 MIT License
-Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 */
 
 package compliance
@@ -10,7 +11,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/gxTypes"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -176,7 +179,7 @@ func (c *TagusCompliance) SignLegalRegistrationNumber(options LegalRegistrationN
 		return nil, err
 	}
 
-	rn := vcTypes.RegistrationNumber2210Struct{
+	rn := gxTypes.RegistrationNumber2210Struct{
 		Context: vcTypes.Context{Context: []vcTypes.Namespace{participantNamespace}},
 		Type:    "gx:legalRegistrationNumber",
 		ID:      options.Id,
@@ -228,6 +231,7 @@ func (c *TagusCompliance) SignLegalRegistrationNumber(options LegalRegistrationN
 	if err != nil {
 		return nil, err
 	}
+	log.Println(string(credential))
 	cred := &vcTypes.VerifiableCredential{}
 	err = json.Unmarshal(credential, cred)
 	if err != nil {
@@ -238,7 +242,7 @@ func (c *TagusCompliance) SignLegalRegistrationNumber(options LegalRegistrationN
 }
 
 func (c *TagusCompliance) SignTermsAndConditions(id string) (*vcTypes.VerifiableCredential, error) {
-	tc := &vcTypes.TermsAndConditions2210Struct{
+	tc := &gxTypes.TermsAndConditions2210Struct{
 		Context:              vcTypes.Context{Context: []vcTypes.Namespace{trustFrameworkNamespace}},
 		Type:                 "gx:GaiaXTermsAndConditions",
 		GxTermsAndConditions: "The PARTICIPANT signing the Self-Description agrees as follows:\n- to update its descriptions about any changes, be it technical, organizational, or legal - especially but not limited to contractual in regards to the indicated attributes present in the descriptions.\n\nThe keypair used to sign Verifiable Credentials will be revoked where Gaia-X Association becomes aware of any inaccurate statements in regards to the claims which result in a non-compliance with the Trust Framework and policy rules defined in the Policy Rules and Labelling Document (PRLD).",
@@ -406,7 +410,7 @@ func (c *TagusCompliance) GaiaXSignParticipant(options ParticipantComplianceOpti
 }
 
 func (c *TagusCompliance) SelfSignSignTermsAndConditions(id string) (*vcTypes.VerifiableCredential, error) {
-	tc := &vcTypes.TermsAndConditions2210Struct{
+	tc := &gxTypes.TermsAndConditions2210Struct{
 		Context:              vcTypes.Context{Context: []vcTypes.Namespace{trustFrameworkNamespace}},
 		Type:                 "gx:GaiaXTermsAndConditions",
 		GxTermsAndConditions: "The PARTICIPANT signing the Self-Description agrees as follows:\n- to update its descriptions about any changes, be it technical, organizational, or legal - especially but not limited to contractual in regards to the indicated attributes present in the descriptions.\n\nThe keypair used to sign Verifiable Credentials will be revoked where Gaia-X Association becomes aware of any inaccurate statements in regards to the claims which result in a non-compliance with the Trust Framework and policy rules defined in the Policy Rules and Labelling Document (PRLD).",

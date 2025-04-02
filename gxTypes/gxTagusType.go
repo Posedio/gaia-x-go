@@ -1,37 +1,39 @@
 /*
 MIT License
-Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 */
 
-package verifiableCredentials
+package gxTypes
 
 import (
 	"encoding/json"
+	vc "gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/verifiableCredentials"
 )
 
 // RegistrationNumber2210Struct implements the shape of the registry number see:
 // https://registry.lab.gaia-x.eu/development/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#gx:legalRegistrationNumberShape
 type RegistrationNumber2210Struct struct {
-	Context                         Context `json:"@context"`
-	Type                            string  `json:"type"`
-	ID                              string  `json:"id"`
-	GxVatID                         string  `json:"gx:vatID,omitempty"`
-	GXVATCountryCode                string  `json:"gx:vatID-countryCode,omitempty"`
-	GxLeiCode                       string  `json:"gx:leiCode,omitempty"`
-	GxLeiCodeCountryCode            string  `json:"gx:leiCode-countryCode,omitempty"`
-	GxLeiCodeSubdivisionCountryCode string  `json:"gx:leiCode-subdivisionCountryCode,omitempty"`
-	GXTaxID                         string  `json:"gx:taxID,omitempty"`
-	GXEUID                          string  `json:"gx:EUID,omitempty"`
-	GXEORI                          string  `json:"gx:EORI,omitempty"`
+	Context                         vc.Context `json:"@context"`
+	Type                            string     `json:"type"`
+	ID                              string     `json:"id"`
+	GxVatID                         string     `json:"gx:vatID,omitempty"`
+	GXVATCountryCode                string     `json:"gx:vatID-countryCode,omitempty"`
+	GxLeiCode                       string     `json:"gx:leiCode,omitempty"`
+	GxLeiCodeCountryCode            string     `json:"gx:leiCode-countryCode,omitempty"`
+	GxLeiCodeSubdivisionCountryCode string     `json:"gx:leiCode-subdivisionCountryCode,omitempty"`
+	GXTaxID                         string     `json:"gx:taxID,omitempty"`
+	GXEUID                          string     `json:"gx:EUID,omitempty"`
+	GXEORI                          string     `json:"gx:EORI,omitempty"`
 }
 
 // TermsAndConditions2210Struct implements the shape of the terms and conditions see:
 // https://registry.lab.gaia-x.eu/development/api/trusted-shape-registry/v1/shapes/jsonld/trustframework#gx:GaiaXTermsAndConditionsShape
 type TermsAndConditions2210Struct struct {
-	Context              Context `json:"@context"`
-	Type                 string  `json:"type"`
-	GxTermsAndConditions string  `json:"gx:termsAndConditions"`
-	ID                   string  `json:"id"`
+	Context              vc.Context `json:"@context"`
+	Type                 string     `json:"type"`
+	GxTermsAndConditions string     `json:"gx:termsAndConditions"`
+	ID                   string     `json:"id"`
 }
 
 func (tc *TermsAndConditions2210Struct) ToMap() (map[string]interface{}, error) {
@@ -70,4 +72,11 @@ func NewComplianceCredentialSubjectFormMap(c map[string]interface{}) (*Complianc
 		return nil, err
 	}
 	return ccs, nil
+}
+
+const GaiaXOntology = "https://w3id.org/gaia-x/development#"
+
+var GaiaXNamespace = vc.Namespace{
+	Namespace: "",
+	URL:       GaiaXOntology,
 }

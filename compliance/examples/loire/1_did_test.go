@@ -1,6 +1,7 @@
 /*
 MIT License
-Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 */
 
 package loire
@@ -19,7 +20,7 @@ import (
 
 func TestNewDID(t *testing.T) {
 	// for demonstration purpose we use a new generated RSA key
-	privateKey, err := rsa.GenerateKey(rand.Reader, 256)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 1024)
 	if err != nil {
 		t.Fatal(err)
 	}

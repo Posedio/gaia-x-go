@@ -1,6 +1,7 @@
 /*
 MIT License
-Copyright (c) 2023 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
+Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 */
 
 package loire
@@ -21,9 +22,9 @@ func TestFirstComplianceCredential(t *testing.T) {
 	// to retrieve the first verifiable credential a legal registration number has to be provided this could be in the form of
 	// compliance.VatID, compliance.LeiCode, compliance.EUID, compliance.EORI,or compliance.TaxID
 	lrnOptions := compliance.LegalRegistrationNumberOptions{
-		Id:                 "http://lrn.test", // Id for the VerifiableCredential that it can be unique identified
-		RegistrationNumber: "FR79537407926",   // Legal Registration Number in this case the on of the GAIA-X AISBL
-		Type:               compliance.VatID,  // Type of the Legal Registration NUmber see List above
+		Id:                 "http://lrn.test",      // Id for the VerifiableCredential that it can be unique identified
+		RegistrationNumber: "98450045E09C7F5A0703", // Legal Registration Number in this case the on of the GAIA-X AISBL
+		Type:               compliance.LeiCode,     // Type of the Legal Registration NUmber see List above
 	}
 
 	// retrieve the Legal Registration Number VC with the provided options
