@@ -9,7 +9,7 @@ package compliance
 import (
 	"errors"
 	"fmt"
-	"net/http"
+	"github.com/hashicorp/go-retryablehttp"
 	"time"
 
 	"github.com/Posedio/gaia-x-go/did"
@@ -147,39 +147,49 @@ var participantNamespace = vcTypes.Namespace{
 }
 
 func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl RegistrationNumberUrl, version string, key jwk.Key, issuer string, verificationMethod string) (Compliance, error) {
-	if version == "22.10" || version == "tagus" || version == "Tagus" {
-		var didResolved *did.DID
-		if issuer != "" || key != nil || verificationMethod != "" {
-			var err error
-			didResolved, err = did.ResolveDIDWeb(issuer)
-			if err != nil {
-				var err1 error
-				didResolved, err1 = did.UniResolverDID(issuer)
-				if err1 != nil {
-					return nil, errors.Join(err, err1)
-				}
-			}
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = 2
+	retryClient.RetryWaitMax = 45 * time.Second
+	retryClient.HTTPClient.Timeout = 45 * time.Second
+	retryClient.Logger = nil
+	retryClient.CheckRetry = vcTypes.DefaultRetryPolicy
 
-			err = didResolved.ResolveMethods()
+	hc := retryClient.StandardClient()
+
+	var didResolved *did.DID
+	if issuer != "" || key != nil || verificationMethod != "" {
+		var err error
+		didResolved, err = did.ResolveDIDWeb(issuer)
+		if err != nil {
+			var err1 error
+			didResolved, err1 = did.UniResolverDID(issuer)
+			if err1 != nil {
+				return nil, errors.Join(err, err1)
+			}
+		}
+
+		err = didResolved.ResolveMethods()
+		if err != nil {
+			return nil, err
+		}
+
+		k, ok := didResolved.Keys[verificationMethod]
+		if !ok {
+			return nil, fmt.Errorf("verification method %v not in the did %v", verificationMethod, issuer)
+		}
+
+		if key != nil {
+			verifyKey, err := key.PublicKey()
 			if err != nil {
 				return nil, err
 			}
-
-			k, ok := didResolved.Keys[verificationMethod]
-			if !ok {
-				return nil, fmt.Errorf("verification method %v not in the did %v", verificationMethod, issuer)
-			}
-
-			if key != nil {
-				verifyKey, err := key.PublicKey()
-				if err != nil {
-					return nil, err
-				}
-				if !jwk.Equal(verifyKey, k.JWK) {
-					return nil, fmt.Errorf("public key from key does not match public key of did")
-				}
+			if !jwk.Equal(verifyKey, k.JWK) {
+				return nil, fmt.Errorf("public key from key does not match public key of did")
 			}
 		}
+	}
+
+	if version == "22.10" || version == "tagus" || version == "Tagus" {
 
 		c := &TagusCompliance{
 			signUrl:               signUrl,
@@ -188,11 +198,9 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 			issuer:                issuer,
 			registrationNumberUrl: registrationNumberUrl,
 			verificationMethod:    verificationMethod,
-			client: &http.Client{
-				Timeout: 50 * time.Second,
-			},
-			did:      didResolved,
-			validate: validator.New(),
+			client:                hc,
+			did:                   didResolved,
+			validate:              validator.New(),
 		}
 
 		err := c.validate.RegisterValidation("validateRegistrationNumberType", ValidateRegistrationNumberType)
@@ -202,39 +210,6 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 
 		return c, nil
 	} else if version == "24.11" || version == "loire" || version == "Loire" {
-		var didResolved *did.DID
-		if issuer != "" || key != nil || verificationMethod != "" {
-			var err error
-			didResolved, err = did.ResolveDIDWeb(issuer)
-			if err != nil {
-				var err1 error
-				didResolved, err1 = did.UniResolverDID(issuer)
-				if err1 != nil {
-					return nil, errors.Join(err, err1)
-				}
-			}
-
-			err = didResolved.ResolveMethods()
-			if err != nil {
-				return nil, err
-			}
-
-			k, ok := didResolved.Keys[verificationMethod]
-			if !ok {
-				return nil, fmt.Errorf("verification method %v not in the did %v", verificationMethod, issuer)
-			}
-
-			if key != nil {
-				verifyKey, err := key.PublicKey()
-				if err != nil {
-					return nil, err
-				}
-				if !jwk.Equal(verifyKey, k.JWK) {
-					return nil, fmt.Errorf("public key from key does not match public key of did")
-				}
-			}
-
-		}
 
 		c := &LoireCompliance{
 			signUrl:               signUrl,
@@ -243,11 +218,9 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 			issuer:                issuer,
 			registrationNumberUrl: registrationNumberUrl,
 			verificationMethod:    verificationMethod,
-			client: &http.Client{
-				Timeout: 20 * time.Second,
-			},
-			did:      didResolved,
-			validate: validator.New(),
+			client:                hc,
+			did:                   didResolved,
+			validate:              validator.New(),
 		}
 
 		err := c.validate.RegisterValidation("validateRegistrationNumberType", ValidateRegistrationNumberType)
