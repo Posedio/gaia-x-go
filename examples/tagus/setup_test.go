@@ -17,12 +17,6 @@ func TestMain(m *testing.M) {
 
 // helper function to get the private key from certificate file
 func getKey() jwk.Key {
-
-	//todo remove
-	err := os.Setenv("TestSignPrivateKeyFilePath", "../../key.pem")
-	if err != nil {
-		log.Fatal(err)
-	}
 	path := os.Getenv("TestSignPrivateKeyFilePath")
 	if path == "" {
 		log.Fatal("missing env variable: TestSignPrivateKeyFilePath")

@@ -225,12 +225,12 @@ func (c *LoireCompliance) SelfSignCredentialSubject(id string, credentialSubject
 	return signedVC, nil
 }
 
-func (c *LoireCompliance) GaiaXSignParticipant(options ParticipantComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error) {
+func (c *LoireCompliance) GaiaXSignParticipant(_ ParticipantComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error) {
 	return nil, nil, errors.New("currently not supported by loire")
 
 }
 
-func (c *LoireCompliance) SelfSignSignTermsAndConditions(id string) (*vcTypes.VerifiableCredential, error) {
+func (c *LoireCompliance) SelfSignSignTermsAndConditions(_ string) (*vcTypes.VerifiableCredential, error) {
 	return nil, errors.New("currently not supported by loire")
 }
 
@@ -300,7 +300,9 @@ func (c *LoireCompliance) SignServiceOffering(options ServiceOfferingComplianceO
 	if err != nil {
 		return nil, nil, err
 	}
-	defer do.Body.Close()
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(do.Body)
 	all, err := io.ReadAll(do.Body)
 	if err != nil {
 		return nil, nil, err

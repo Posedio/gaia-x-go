@@ -83,7 +83,7 @@ func TestDid(t *testing.T) {
 
 func TestDIDdWeb(t *testing.T) {
 	//check basic did:web
-	j, err := ResolveDIDWeb("did:web:vc.mivp.group")
+	j, err := ResolveDIDWeb("did:web:did.dumss.me")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +106,7 @@ func TestDIDdWeb(t *testing.T) {
 }
 
 func TestUniResolve(t *testing.T) {
-	did, err := UniResolverDID("did:web:vc.mivp.group")
+	did, err := UniResolverDID("did:web:did.dumss.me")
 	if err != nil {
 		t.Fatal(err)
 	}
