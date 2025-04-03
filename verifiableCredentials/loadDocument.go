@@ -7,12 +7,13 @@ package verifiableCredentials
 
 import (
 	"fmt"
+	"github.com/Posedio/gaia-x-go/verifiableCredentials/static"
 	"github.com/piprate/json-gold/ld"
-	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/verifiableCredentials/static"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"sync"
@@ -65,7 +66,13 @@ func (dl *DocumentLoader) LoadDocument(u string) (*ld.RemoteDocument, error) {
 		// Can't use the HTTP client for those!
 		remoteDoc.DocumentURL = u
 		var file *os.File
-		file, err = os.Open(u)
+
+		absPath, err := filepath.Abs(u)
+		if err != nil {
+			return nil, err
+		}
+
+		file, err = os.Open(filepath.Clean(absPath))
 		if err != nil {
 			return nil, ld.NewJsonLdError(ld.LoadingDocumentFailed, err)
 		}

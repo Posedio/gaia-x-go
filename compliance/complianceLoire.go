@@ -10,18 +10,18 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/gxTypes"
+	"github.com/Posedio/gaia-x-go/gxTypes"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/Posedio/gaia-x-go/did"
+	vcTypes "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"github.com/go-playground/validator/v10"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jws"
-	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/did"
-	vcTypes "gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/verifiableCredentials"
 )
 
 // LoireCompliance is compatibility is checked up to clearinghouse 1.11.1
@@ -306,7 +306,7 @@ func (c *LoireCompliance) SignServiceOffering(options ServiceOfferingComplianceO
 		return nil, nil, err
 	}
 	if do.StatusCode != 201 {
-		return nil, nil, fmt.Errorf(string(all))
+		return nil, nil, errors.New(string(all))
 	}
 
 	complianceCredential, err := vcTypes.VCFromJWT(all)

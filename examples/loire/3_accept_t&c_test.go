@@ -7,14 +7,14 @@ Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 package loire
 
 import (
-	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/compliance"
+	"github.com/Posedio/gaia-x-go/compliance"
+	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestSignTermsAndConditions(t *testing.T) {
 	// at this point there is no way anymore to avoid a certificate with a qualified trust anchor.
 	// for details how to load a certificate see the getKey function below
-	key := getKey(t)
 
 	// to accept the terms and conditions with YOUR digital identity first a compliance server has to be selected see compliance.ServiceUrl
 	// version can stay on the 22.10 since is this is the most up-to-date version
@@ -22,7 +22,7 @@ func TestSignTermsAndConditions(t *testing.T) {
 	// as described above a private key with a public key that is signed by a qualified trust anchor is needed
 	// as issuer a did as shown in 1_did is shown has to be provided
 	// since a did can have multiple verification methods one that is used have to be specified, obviously this has to be the qualified public key to the set private key.
-	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, "", "tagus", key, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
+	connector, err := compliance.NewComplianceConnector("", "", "loire", key, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,12 +42,13 @@ func TestSignTermsAndConditions(t *testing.T) {
 	}
 	t.Log(conditions)
 
-	//the current version of the Terms and Conditions can be retrieved from the clearing houses
-	tc, err := connector.GetTermsAndConditions(compliance.TSystemsRegistryV1)
+	err = conditions.Verify()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Log(tc)
+	//the current version of the Terms and Conditions can be retrieved from the clearing houses
+	_, err = connector.GetTermsAndConditions("")
+	assert.Equal(t, "not online available in loire", err.Error())
 
 }

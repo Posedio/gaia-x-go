@@ -8,7 +8,7 @@ package gxTypes
 
 import (
 	"encoding/json"
-	vc "gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/verifiableCredentials"
+	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
 )
 
 // RegistrationNumber2210Struct implements the shape of the registry number see:

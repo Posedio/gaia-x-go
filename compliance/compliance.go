@@ -12,11 +12,11 @@ import (
 	"net/http"
 	"time"
 
-	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/did"
+	"github.com/Posedio/gaia-x-go/did"
 
+	vcTypes "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"github.com/go-playground/validator/v10"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	vcTypes "gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/verifiableCredentials"
 )
 
 type Compliance interface {
@@ -45,14 +45,22 @@ const (
 
 type RegistrationNumberUrl string
 
-// todo update
 const (
-	ArubaV1Notary   RegistrationNumberUrl = "https://gx-notary.aruba.it/v1/registrationNumberVC"
-	TSystemV1Notary RegistrationNumberUrl = "https://gx-notary.gxdch.dih.telekom.com/v1/registrationNumberVC"
-	TSystemV2Notary RegistrationNumberUrl = "https://gx-notary.gxdch.dih.telekom.com/v2/registration-numbers"
-	LabV1Notary     RegistrationNumberUrl = "https://registrationnumber.notary.lab.gaia-x.eu/v1/registrationNumberVC"
-	AireV1Notary    RegistrationNumberUrl = "https://gx-notary.airenetworks.es/v1//registrationNumberVC"
-	ArsysV2Notary   RegistrationNumberUrl = "https://gx-notary.arsys.es/v2/registration-numbers"
+	AireV1Notary     RegistrationNumberUrl = "https://gx-notary.airenetworks.es/v1/registrationNumberVC"
+	ArsysV1Notary    RegistrationNumberUrl = "https://gx-notary.arsys.es/v1/registrationNumberVC"
+	ArubaV1Notary    RegistrationNumberUrl = "https://gx-notary.aruba.it/v1/registrationNumberVC"
+	TSystemV1Notary  RegistrationNumberUrl = "https://gx-notary.gxdch.dih.telekom.com/v1/registrationNumberVC"
+	DeltaDaoV1Notary RegistrationNumberUrl = "https://www.delta-dao.com/notary/v1/registrationNumberVC"
+	OVHV1Notary      RegistrationNumberUrl = "https://notary.gxdch.gaiax.ovh/v1/registrationNumberVC"
+	NeustaV1Notary   RegistrationNumberUrl = "https://aerospace-digital-exchange.eu/notary/v1/registrationNumberVC"
+	ProximusV1Notary RegistrationNumberUrl = "https://gx-notary.gxdch.proximus.eu/v1/registrationNumberVC"
+	PfalzkomV1Notary RegistrationNumberUrl = "https://trust-anker.pfalzkom-gxdch.de/v1/registrationNumberVC"
+	CISPEV1Notary    RegistrationNumberUrl = "https://notary.cispe.gxdch.clouddataengine.io/v1/registrationNumberVC"
+	ArsysV2Notary    RegistrationNumberUrl = "https://gx-notary.arsys.es/v2/registration-numbers"
+	TSystemV2Notary  RegistrationNumberUrl = "https://gx-notary.gxdch.dih.telekom.com/v2/registration-numbers"
+	DeltaDaoV2Notary RegistrationNumberUrl = "https://www.delta-dao.com/notary/v2/registration-numbers"
+	NeustaV2Notary   RegistrationNumberUrl = "https://aerospace-digital-exchange.eu/notary/v2/registration-numbers"
+	LabV1Notary      RegistrationNumberUrl = "https://registrationnumber.notary.lab.gaia-x.eu/v1/registrationNumberVC"
 )
 
 func (rn RegistrationNumberUrl) String() string {
@@ -65,7 +73,6 @@ func (su ServiceUrl) String() string {
 	return string(su)
 }
 
-// todo update
 const (
 	MainBranch        ServiceUrl = "https://compliance.lab.gaia-x.eu/main/api/credential-offers"
 	DevelopmentBranch ServiceUrl = "https://compliance.lab.gaia-x.eu/development/api/credential-offers"
@@ -73,9 +80,19 @@ const (
 	V1Staging         ServiceUrl = "https://compliance.lab.gaia-x.eu/v1-staging/api/credential-offers"
 	V2Staging         ServiceUrl = "https://compliance.lab.gaia-x.eu/main/api/credential-offers"
 	AireV1            ServiceUrl = "https://gx-compliance.airenetworks.es/v1/credential-offer"
+	ArsysV1           ServiceUrl = "https://gx-compliance.arsys.es/v1/credential-offer"
 	ArubaV1           ServiceUrl = "https://gx-compliance.aruba.it/v1/credential-offer"
 	TSystemsV1        ServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v1/credential-offer"
+	DeltaDAOV1        ServiceUrl = "https://www.delta-dao.com/compliance/v1/credential-offer"
+	OVHV1             ServiceUrl = "https://compliance.gxdch.gaiax.ovh/v1/credential-offer"
+	NeustaV1          ServiceUrl = "https://aerospace-digital-exchange.eu/compliance/v1/credential-offer"
+	ProximusV1        ServiceUrl = "https://gx-compliance.gxdch.proximus.eu/v1/credential-offer"
+	PfalzKomV1        ServiceUrl = "https://compliance.pfalzkom-gxdch.de/v1/credential-offer"
+	CISPEV1           ServiceUrl = "https://compliance.cispe.gxdch.clouddataengine.io/v1/credential-offer"
+	ArsysV2           ServiceUrl = "https://gx-compliance.arsys.es/v2/api/credential-offers"
 	TSystemsV2        ServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v2/api/credential-offers"
+	DeltaDaoV2        ServiceUrl = "https://www.delta-dao.com/compliance/v2/api/credential-offers"
+	NeustaV2          ServiceUrl = "https://aerospace-digital-exchange.eu/compliance/v2/api/credential-offers"
 )
 
 type RegistryUrl string
@@ -84,12 +101,22 @@ func (r RegistryUrl) String() string {
 	return string(r)
 }
 
-// todo update
 const (
 	AireRegistryV1     RegistryUrl = "https://gx-registry.airenetworks.es/v1/"
+	ArsysRegistryV1    RegistryUrl = "https://gx-registry.arsys.es/v1/"
 	ArubaRegistryV1    RegistryUrl = "https://gx-registry.aruba.it/v1/"
 	TSystemsRegistryV1 RegistryUrl = "https://gx-registry.gxdch.dih.telekom.com/v1/"
-	RegistryV1         RegistryUrl = "https://registry.lab.gaia-x.eu/v1/docs"
+	DeltaDaoRegistryV1 RegistryUrl = "https://www.delta-dao.com/registry/v1/"
+	OVHRegistryV1      RegistryUrl = "https://registry.gxdch.gaiax.ovh/v1/"
+	NeustaRegistryV1   RegistryUrl = "https://aerospace-digital-exchange.eu/registry/v1/"
+	ProximusRegistryV1 RegistryUrl = "https://gx-registry.gxdch.proximus.eu/v1/"
+	PfalzkomRegistryV1 RegistryUrl = "https://portal.pfalzkom-gxdch.de/v1/"
+	CISPERegistryV1    RegistryUrl = "https://registry.cispe.gxdch.clouddataengine.io/v1/"
+	RegistryV1         RegistryUrl = "https://registry.lab.gaia-x.eu/v1/"
+	ArsysRegistryV2    RegistryUrl = "https://gx-registry.arsys.es/v2/"
+	TSystemRegistryV2  RegistryUrl = "https://gx-registry.gxdch.dih.telekom.com/v2/"
+	DeltaDAORegistryV2 RegistryUrl = "https://www.delta-dao.com/registry/v2/"
+	NeustaRegistryV2   RegistryUrl = "https://aerospace-digital-exchange.eu/registry/v2/"
 )
 
 type LabelLevel string
@@ -143,12 +170,14 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 				return nil, fmt.Errorf("verification method %v not in the did %v", verificationMethod, issuer)
 			}
 
-			verifyKey, err := key.PublicKey()
-			if err != nil {
-				return nil, err
-			}
-			if !jwk.Equal(verifyKey, k.JWK) {
-				return nil, fmt.Errorf("public key from key does not match public key of did")
+			if key != nil {
+				verifyKey, err := key.PublicKey()
+				if err != nil {
+					return nil, err
+				}
+				if !jwk.Equal(verifyKey, k.JWK) {
+					return nil, fmt.Errorf("public key from key does not match public key of did")
+				}
 			}
 		}
 
@@ -195,13 +224,16 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 				return nil, fmt.Errorf("verification method %v not in the did %v", verificationMethod, issuer)
 			}
 
-			verifyKey, err := key.PublicKey()
-			if err != nil {
-				return nil, err
+			if key != nil {
+				verifyKey, err := key.PublicKey()
+				if err != nil {
+					return nil, err
+				}
+				if !jwk.Equal(verifyKey, k.JWK) {
+					return nil, fmt.Errorf("public key from key does not match public key of did")
+				}
 			}
-			if !jwk.Equal(verifyKey, k.JWK) {
-				return nil, fmt.Errorf("public key from key does not match public key of did")
-			}
+
 		}
 
 		c := &LoireCompliance{

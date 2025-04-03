@@ -7,9 +7,9 @@ Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 package loire
 
 import (
-	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/compliance"
-	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/gxTypes"
-	vc "gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/verifiableCredentials"
+	"github.com/Posedio/gaia-x-go/compliance"
+	"github.com/Posedio/gaia-x-go/gxTypes"
+	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"testing"
 	"time"
 )
@@ -19,9 +19,6 @@ func TestCompliance(t *testing.T) {
 	var issuer = "did:web:did.dumss.me"
 	var countryCode = "AT"
 	var countryName = "Austria"
-
-	//get the key from environment variable
-	key := getKey(t)
 
 	// instantiate a Compliance Connector for the Loire release
 	connector, err := compliance.NewComplianceConnector(compliance.V2Staging, compliance.ArsysV2Notary, "loire", key, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
@@ -42,7 +39,7 @@ func TestCompliance(t *testing.T) {
 		t.Fatal(err)
 	}
 	// verify the credential (not needed but recommended)
-	err = LRNVC.Verify()
+	err = LRNVC.Verify(vc.IssuerMatch(), vc.IsGaiaXTrustedIssuer(compliance.ArsysV2Notary.String()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -899,37 +896,34 @@ func TestCompliance(t *testing.T) {
 	customerInstructionsVC, _ := vc.NewEmptyVerifiableCredentialV2(
 		vc.WithVCID(idprefix+"customerInstructions"),
 		vc.WithValidFromNow(),
-		vc.WithAdditionalTypes("gx:CustomerInstructions"),
+		//vc.WithAdditionalTypes("gx:CustomerInstructions"), will be defined in the credential subject to allow for another type CS of legal person
 		vc.WithIssuer(issuer),
 		vc.WithGaiaXContext())
-	customerInstructions := gxTypes.CustomerInstructions{
-		Terms: []gxTypes.LegalDocument{
-			{
-				URL:                   vc.WithAnyURI("https://www.posedio.com/CustomerInstructionsTerms"),
-				GoverningLawCountries: []string{"AT"},
-				InvolvedParties:       make([]gxTypes.LegalPerson, 1),
-			},
-		},
-		Means: []gxTypes.LegalDocument{
-			{
-				URL:                   vc.WithAnyURI("https://www.posedio.com/CustomerInstructionsMeans"),
-				GoverningLawCountries: []string{"AT"},
-				InvolvedParties:       make([]gxTypes.LegalPerson, 1),
-			},
-		},
+
+	ciTM := gxTypes.LegalDocument{
+		URL:                   vc.WithAnyURI("https://www.posedio.com/CustomerInstructionsTermsAndMeans"),
+		GoverningLawCountries: []string{"AT"},
+		InvolvedParties:       make([]gxTypes.LegalPerson, 1),
 	}
+	ciTM.ID = customerInstructionsVC.ID + "#CIcs"
+	ciTM.InvolvedParties[0].ID = companyCS.ID
+	ciTM.InvolvedParties[0].Type = "gx:LegalPerson"
+	ciTM.Type = "gx:LegalDocument"
 
-	// todo look into that, seems something that does not need to be defined inline
-	customerInstructions.Terms[0].InvolvedParties[0].Type = "gx:LegalPerson"
-	customerInstructions.Terms[0].InvolvedParties[0].ID = companyCS.ID
-	customerInstructions.Terms[0].Type = "gx:LegalDocument"
-
-	customerInstructions.Means[0].InvolvedParties[0].Type = "gx:LegalPerson"
-	customerInstructions.Means[0].InvolvedParties[0].ID = companyCS.ID
-	customerInstructions.Means[0].Type = "gx:LegalDocument"
+	customerInstructions := gxTypes.CustomerInstructions{}
+	customerInstructions.Terms = make([]gxTypes.LegalDocument, 1)
+	customerInstructions.Terms[0].ID = ciTM.ID
+	customerInstructions.Means = make([]gxTypes.LegalDocument, 1)
+	customerInstructions.Means[0].ID = ciTM.ID
+	customerInstructions.Type = "gx:CustomerInstructions"
 
 	customerInstructions.ID = customerInstructionsVC.ID + "#cs"
 	err = customerInstructionsVC.AddToCredentialSubject(customerInstructions)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = customerInstructionsVC.AddToCredentialSubject(ciTM)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -939,7 +933,7 @@ func TestCompliance(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log(customerInstructionsVC) //todo see todo above
+	t.Log(customerInstructionsVC)
 
 	vp.AddEnvelopedVC(customerInstructionsVC.GetOriginalJWS())
 
@@ -1262,8 +1256,6 @@ func TestCompliance(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log(ServiceOfferingVC)
-
 	ServiceOfferingVC.ID = "https://did.dumss.me/test"
 
 	ServiceOfferingVC.ValidFrom = time.Now()
@@ -1279,20 +1271,40 @@ func TestCompliance(t *testing.T) {
 	// show verifiable presentation
 	t.Log(vp)
 
-	// decode the verifiable presentation (only copy of it)
-	/*
-		credentials, err := vp.DecodeEnvelopedCredentials()
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Log(credentials)
-
-	*/
-
 	offering, _, err := connector.SignServiceOffering(compliance.ServiceOfferingComplianceOptions{ServiceOfferingVP: vp, ServiceOfferingLabelLevel: compliance.Level0, Id: idprefix + "complianceCredential"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Log(offering)
+
+	// decode the verifiable presentation (only copy of it)
+	credentials, err := vp.DecodeEnvelopedCredentials()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	credentials = append(credentials, offering)
+
+	// optional storage of the vc
+	store := vc.NewStore()
+	for _, v := range credentials {
+		err := store.Create(v)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	err = store.ToFile("test.json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// get vc from storage
+	newStore, err := vc.NewStoreFromFile("test.json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(newStore.GetAllIndex())
 
 }

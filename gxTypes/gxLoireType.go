@@ -7,7 +7,7 @@ Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 package gxTypes
 
 import (
-	vc "gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/verifiableCredentials"
+	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"time"
 )
 

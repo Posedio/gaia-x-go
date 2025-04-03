@@ -7,18 +7,16 @@ Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 package loire
 
 import (
-	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/compliance"
-	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/verifiableCredentials"
+	"github.com/Posedio/gaia-x-go/compliance"
+	"github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"testing"
 )
 
 func TestCompliantServiceOfferingWithResourceAndExtension(t *testing.T) {
 	// to retrieve a compliant participant credential, as described before a digital identity in this case a DID is needed
-	// so first loading the private key is needed
-	privateKey := getKey(t)
 
 	// to establish a client we follow the steps we had already done
-	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, compliance.ArubaV1Notary, "tagus", privateKey, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
+	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, compliance.ArubaV1Notary, "tagus", key, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
 	if err != nil {
 		t.Fatal(err)
 	}

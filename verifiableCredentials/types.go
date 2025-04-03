@@ -24,15 +24,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Posedio/gaia-x-go/did"
 	"github.com/go-playground/validator/v10"
 	"github.com/gowebpki/jcs"
 	"github.com/lestrrat-go/jwx/v2/jws"
 	"github.com/piprate/json-gold/ld"
-	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/did"
 )
 
-const W3CredentialsUrl = "https://www.w3.org/2018/credentials/v1"
-const W3CCredentialsUrlV2 = "https://www.w3.org/ns/credentials/v2"
+const W3CredentialsUrl = "https://www.w3.org/2018/credentials/v1"  // #nosec
+const W3CCredentialsUrlV2 = "https://www.w3.org/ns/credentials/v2" // #nosec
 
 const W3CEnvelopedVerifiableCredential = "EnvelopedVerifiableCredential"
 
@@ -65,6 +65,10 @@ type VerifiablePresentation struct {
 	ValidUntil           time.Time               `json:"validUntil,omitzero" validate:"omitempty"`
 	signature            *JWSSignature
 	decodedCredentials   []*VerifiableCredential
+	proc                 *ld.JsonLdProcessor
+	Options              *ld.JsonLdOptions `json:"-"`
+	mux                  sync.Mutex
+	once                 sync.Once
 }
 
 func NewEmptyVerifiablePresentation() *VerifiablePresentation {
@@ -168,6 +172,62 @@ func (vp *VerifiablePresentation) DecodeEnvelopedCredentials() ([]*VerifiableCre
 		vp.decodedCredentials[i] = v
 	}
 	return vp.decodedCredentials, nil
+}
+
+func (vp *VerifiablePresentation) setupJsonLdProcessor() {
+	vp.proc = ld.NewJsonLdProcessor()
+
+	vp.Options = ld.NewJsonLdOptions("")
+	vp.Options.UseRdfType = true
+	vp.Options.Format = "application/n-quads"
+	vp.Options.Algorithm = ld.AlgorithmURDNA2015
+
+	// since the w3c website is not perfectly available retry it 10 times,
+	// alternatively the document loader could cache the result
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = 10
+	retryClient.RetryWaitMax = 4000 * time.Millisecond
+	retryClient.HTTPClient.Timeout = 3500 * time.Millisecond
+	retryClient.Logger = nil
+	retryClient.CheckRetry = DefaultRetryPolicy
+
+	client := retryClient.StandardClient()
+
+	loader := NewDocumentLoader(client)
+
+	vp.Options.DocumentLoader = loader
+}
+
+func (vp *VerifiablePresentation) Expand() ([][]byte, error) {
+	m, err := vp.ToMap()
+	if err != nil {
+		return nil, err
+	}
+
+	vp.once.Do(vp.setupJsonLdProcessor)
+
+	options := ld.NewJsonLdOptions("")
+
+	options.Explicit = true
+
+	n, err := vp.proc.Expand(m, options)
+	if err != nil {
+		if strings.Contains(err.Error(), string(ld.LoadingRemoteContextFailed)) {
+			log.Println(err.Error())
+		}
+		return nil, fmt.Errorf("jsongold error: %v", err)
+	}
+
+	l := make([][]byte, len(n))
+
+	for i, ele := range n {
+		marshal, err := json.Marshal(ele)
+		if err != nil {
+			return nil, err
+		}
+		l[i] = marshal
+	}
+	return l, nil
 }
 
 func NewEmptyVerifiableCredential() *VerifiableCredential {
@@ -476,9 +536,10 @@ func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
 			}
 		}
 
-		// Todo make optional Issuer is not required by GX in the Headers
-		if c.Issuer != c.signature.JWTHeader.Issuer {
-			return fmt.Errorf("credential issuer does not match JTW issuer")
+		if vO.issuerMatch {
+			if c.Issuer != c.signature.JWTHeader.Issuer {
+				return fmt.Errorf("credential issuer does not match JTW issuer")
+			}
 		}
 
 		if vO.isTrustedIssuer {
@@ -486,15 +547,15 @@ func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
 			if err != nil {
 				return err
 			}
-			defer get.Body.Close()
+			defer func(Body io.ReadCloser) {
+				_ = Body.Close()
+			}(get.Body)
 			all, err := io.ReadAll(get.Body)
 			if err != nil {
 				return err
 			}
 
-			// todo make it to option, check on path v1/v2...
-			if !strings.Contains(string(all), host) {
-				log.Println(string(all))
+			if !(strings.Contains(string(all), host+"/v1") || strings.Contains(string(all), host+"/v2")) {
 				return errors.New("is not a trusted gx issuer")
 			}
 		}
@@ -628,6 +689,38 @@ func (c *VerifiableCredential) CanonizeGo() ([]byte, error) {
 		return []byte(re), nil
 	}
 	return nil, errors.New("could not convert to byte slice")
+}
+
+func (c *VerifiableCredential) Expand() ([][]byte, error) {
+	m, err := c.ToMap()
+	if err != nil {
+		return nil, err
+	}
+
+	c.once.Do(c.setupJsonLdProcessor)
+
+	options := ld.NewJsonLdOptions("")
+
+	options.Explicit = true
+
+	n, err := c.proc.Expand(m, options)
+	if err != nil {
+		if strings.Contains(err.Error(), string(ld.LoadingRemoteContextFailed)) {
+			log.Println(err.Error())
+		}
+		return nil, fmt.Errorf("jsongold error: %v", err)
+	}
+
+	l := make([][]byte, len(n))
+
+	for i, ele := range n {
+		marshal, err := json.Marshal(ele)
+		if err != nil {
+			return nil, err
+		}
+		l[i] = marshal
+	}
+	return l, nil
 }
 
 func (c *VerifiableCredential) JSC() ([]byte, error) {
@@ -952,6 +1045,7 @@ type verifyOptions struct {
 	retryWithOldSignature bool
 	mux                   sync.RWMutex
 	isTrustedIssuer       bool
+	issuerMatch           bool
 	notary                string
 }
 
@@ -967,6 +1061,13 @@ func IsGaiaXTrustedIssuer(notary string) *VerifyOption {
 		if notary == "" {
 			notary = "https://gx-registry.gxdch.dih.telekom.com/v2/api/trusted-issuers"
 		}
+		option.isTrustedIssuer = true
+		return nil
+	}}
+}
+
+func IssuerMatch() *VerifyOption {
+	return &VerifyOption{f: func(option *verifyOptions) error {
 		option.isTrustedIssuer = true
 		return nil
 	}}

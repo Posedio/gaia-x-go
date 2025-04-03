@@ -10,10 +10,9 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"github.com/Posedio/gaia-x-go/did"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/did"
-	"os"
 	"testing"
 )
 
@@ -93,23 +92,8 @@ func TestNewDID(t *testing.T) {
 }
 
 func TestNewDIDFromCertificate(t *testing.T) {
-	// path to the certificate pem file which includes the private key
-	path := os.Getenv("TestSignPrivateKeyFile")
-	if path == "" {
-		t.Fatal("missing env variable")
-	}
-
-	// read the certificate and parse it direct to a jwk set (attention jwk will be based on your private key!!)
-	JWKSet, err := jwk.ReadFile(path, jwk.WithPEM(true))
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	//in case the file contains multiple keys select the one you want to use
-	privateKeyJWK, ok := JWKSet.Key(0)
-	if !ok {
-		t.Fatal("no key in set")
-	}
+	privateKeyJWK := key
 	// from here you can follow the same approach as in the TestNewDID defined
 	publicKeyJWK, err := privateKeyJWK.PublicKey()
 	if err != nil {

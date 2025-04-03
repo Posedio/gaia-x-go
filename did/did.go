@@ -157,7 +157,7 @@ var OID4VC ServiceType = "OID4VCI"
 var OID4CP ServiceType = "OID4VP"
 var LinkedDomain ServiceType = "LinkedDomains"
 var DIDCommMessaging ServiceType = "DIDCommMessaging"
-var CredentialRegistry ServiceType = "CredentialRegistry"
+var CredentialRegistry ServiceType = "CredentialRegistry" // #nosec
 
 // Service as defined in https://www.w3.org/TR/did-core/#service-properties
 // https://www.w3.org/TR/did-spec-registries/#openid4-verifiable-presentation

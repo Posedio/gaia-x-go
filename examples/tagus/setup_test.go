@@ -2,32 +2,39 @@ package loire
 
 import (
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	"log"
 	"os"
 	"testing"
 )
 
-func TestMain(m *testing.M) {
-	//log.Println("Do stuff BEFORE the tests!")
-	exit := m.Run()
-	//log.Println("Do stuff AFTER the tests!")
+var key jwk.Key
 
+func TestMain(m *testing.M) {
+	key = getKey()
+	exit := m.Run()
 	os.Exit(exit)
 }
 
 // helper function to get the private key from certificate file
-func getKey(t *testing.T) jwk.Key {
-	path := os.Getenv("TestSignPrivateKeyFile")
+func getKey() jwk.Key {
+
+	//todo remove
+	err := os.Setenv("TestSignPrivateKeyFilePath", "../../key.pem")
+	if err != nil {
+		log.Fatal(err)
+	}
+	path := os.Getenv("TestSignPrivateKeyFilePath")
 	if path == "" {
-		t.Fatal("missing env variable")
+		log.Fatal("missing env variable: TestSignPrivateKeyFilePath")
 	}
 	set, err := jwk.ReadFile(path, jwk.WithPEM(true))
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 
 	key, ok := set.Key(0)
 	if !ok {
-		t.Fatal("no key in set")
+		log.Fatal("no key in set")
 	}
 	return key
 }

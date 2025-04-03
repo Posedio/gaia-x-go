@@ -7,7 +7,7 @@ It is not meant for any production usage, although it enables the needed verific
 
 ## Usage
 
-For examples see compliance/examples.
+For examples see the folder examples.
 
 
 ## Contributing

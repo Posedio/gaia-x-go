@@ -11,19 +11,19 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/gxTypes"
+	"github.com/Posedio/gaia-x-go/gxTypes"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/Posedio/gaia-x-go/did"
+	vcTypes "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"github.com/go-playground/validator/v10"
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jws"
-	"gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/did"
-	vcTypes "gitlab.euprogigant.kube.a1.digital/stefan.dumss/gaia-x-go/verifiableCredentials"
 )
 
 type TagusCompliance struct {
@@ -562,6 +562,28 @@ func (c *TagusCompliance) generateJWS(sd []byte) ([]byte, string, error) {
 	}
 
 	buf, err := jws.Sign(nil, jws.WithKey(jwa.PS256, c.key, jws.WithProtectedHeaders(header)), jws.WithDetachedPayload([]byte(hash)))
+	if err != nil {
+		return nil, "", err
+	}
+
+	return buf, hash, nil
+}
+
+// generateJWS sd has to be the normalized sd
+func generateJWS(sd []byte, privateKey jwk.Key) ([]byte, string, error) {
+	hash := hash256(sd)
+
+	header := jws.NewHeaders()
+	err := header.Set("b64", false)
+	if err != nil {
+		return nil, "", err
+	}
+	err = header.Set("crit", []string{"b64"})
+	if err != nil {
+		return nil, "", err
+	}
+
+	buf, err := jws.Sign(nil, jws.WithKey(jwa.PS256, privateKey, jws.WithProtectedHeaders(header)), jws.WithDetachedPayload([]byte(hash)))
 	if err != nil {
 		return nil, "", err
 	}

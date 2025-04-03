@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -45,7 +46,7 @@ func (s *Store) Create(vc *VerifiableCredential) error {
 	if err != nil {
 		return err
 	}
-	if vc.Proof == nil {
+	if vc.Proof == nil && vc.signature == nil {
 		return errors.New("vc needs a proof")
 	}
 	s.mux.Lock()
@@ -103,14 +104,13 @@ func (s *Store) GetAllIndex() []string {
 	return index
 }
 
-// todo incude signature/proof
 func (s *Store) ToFile(path string, keyPhrase []byte) (err error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return errors.Join(errors.New("ToFile error on absolute file path: "), err)
 	}
 
-	err = os.MkdirAll(filepath.Dir(absPath), os.ModePerm)
+	err = os.MkdirAll(filepath.Dir(absPath), os.ModeDir)
 	if err != nil {
 		return errors.Join(errors.New("ToFile error on creating dirs: "), err)
 	}
@@ -119,23 +119,31 @@ func (s *Store) ToFile(path string, keyPhrase []byte) (err error) {
 		return errors.Join(errors.New("ToFile error on creating file: "), err)
 	}
 	defer func() {
-		er := file.Close()
-		if er != nil {
-			err = errors.Join(err, er)
-		}
+		_ = file.Close()
 	}()
 
-	var vcList []*VerifiableCredential
+	var vcList []any
 
 	for _, vc := range s.vc {
+		if vc.Proof != nil {
+			vcList = append(vcList, vc)
+			continue
+		} else if vc.signature != nil {
+			a := vc.GetOriginalJWS()
+			if a != nil && len(a) > 0 {
+				vcList = append(vcList, string(a))
+				continue
+			}
+		}
+		//unsigned
 		vcList = append(vcList, vc)
+
 	}
 
 	marshal, err := json.Marshal(vcList)
 	if err != nil {
 		return err
 	}
-
 	if keyPhrase != nil {
 		cb, err := aes.NewCipher(keyPhrase)
 		if err != nil {
@@ -163,6 +171,9 @@ func (s *Store) ToFile(path string, keyPhrase []byte) (err error) {
 
 func NewStoreFromFile(path string, keyPhrase []byte) (s *Store, err error) {
 	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, errors.Join(errors.New("NewStoreFromFile error on absolute file path: "), err)
+	}
 
 	vcj, err := os.ReadFile(filepath.Clean(absPath))
 	if err != nil {
@@ -190,29 +201,45 @@ func NewStoreFromFile(path string, keyPhrase []byte) (s *Store, err error) {
 		if err != nil {
 			return nil, err
 		}
-		/*
-			vcj, err = jwe.Decrypt(vcj, jwe.WithKey(jwa.RSA1_5, key))
-			if err != nil {
-				return nil, err
-			}
-
-		*/
 	}
 
-	var vcList []*VerifiableCredential
+	var vcList []any
+	store := NewStore()
 
 	err = json.Unmarshal(vcj, &vcList)
 	if err != nil {
 		return nil, err
 	}
 
-	store := NewStore()
+	log.Println(vcList)
 
 	for _, vc := range vcList {
-		err := store.Create(vc)
-		if err != nil {
-			return nil, err
+		switch vc.(type) {
+		case map[string]interface{}:
+			vj, err := json.Marshal(vc.(map[string]interface{}))
+			if err != nil {
+				return nil, err
+			}
+			v := NewEmptyVerifiableCredential()
+			err = json.Unmarshal(vj, v)
+			if err != nil {
+				return nil, err
+			}
+			err = store.Create(v)
+			if err != nil {
+				return nil, err
+			}
+		case string:
+			v, err := VCFromJWT([]byte(vc.(string)))
+			if err != nil {
+				return nil, err
+			}
+			err = store.Create(v)
+			if err != nil {
+				return nil, err
+			}
 		}
+
 	}
 
 	return store, nil
