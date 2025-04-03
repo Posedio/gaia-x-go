@@ -22,6 +22,7 @@ import (
 type Compliance interface {
 	SelfSign(credential *vcTypes.VerifiableCredential) error
 	ReSelfSign(credential *vcTypes.VerifiableCredential) error
+	SelfSignPresentation(presentation *vcTypes.VerifiablePresentation, validFor time.Duration) error
 	SelfVerify(vc *vcTypes.VerifiableCredential) error
 	SignLegalRegistrationNumber(options LegalRegistrationNumberOptions) (*vcTypes.VerifiableCredential, error)
 	SignTermsAndConditions(id string) (*vcTypes.VerifiableCredential, error)

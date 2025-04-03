@@ -57,12 +57,14 @@ var SecuritySuitesJWS2020 = Namespace{
 // since Gaia-X has not defined a proof method yet, this is still open
 type VerifiablePresentation struct {
 	Context              string                  `json:"@context" validate:"required"`
+	Id                   string                  `json:"id,omitempty,omitzero"`
 	Type                 string                  `json:"type" validate:"required"`
 	VerifiableCredential []*VerifiableCredential `json:"verifiableCredential" validate:"required"`
-	Proof                *Proofs                 `json:"proof,omitempty"`
-	Issuer               string                  `json:"issuer,omitempty,omitzero" validate:"omitempty"`
-	ValidFrom            time.Time               `json:"validFrom,omitzero" validate:"omitempty"`
-	ValidUntil           time.Time               `json:"validUntil,omitzero" validate:"omitempty"`
+	Proof                *Proofs                 `json:"proof,omitempty"`                                //non-standard-compliant
+	Issuer               string                  `json:"issuer,omitempty,omitzero" validate:"omitempty"` //non-standard-compliant
+	ValidFrom            time.Time               `json:"validFrom,omitzero" validate:"omitempty"`        //non-standard-compliant
+	ValidUntil           time.Time               `json:"validUntil,omitzero" validate:"omitempty"`       //non-standard-compliant
+	Holder               any                     `json:"holder,omitempty,omitzero" validate:"omitempty"`
 	signature            *JWSSignature
 	decodedCredentials   []*VerifiableCredential
 	proc                 *ld.JsonLdProcessor
@@ -230,6 +232,51 @@ func (vp *VerifiablePresentation) Expand() ([][]byte, error) {
 	return l, nil
 }
 
+func (vp *VerifiablePresentation) AddSignature(originalJWS []byte) error {
+	dids, err := VerifyJWS(originalJWS)
+	if err != nil {
+		return err
+	}
+	var signaturesErr error
+
+	for didweb, header := range dids {
+		key, k := didweb.Keys[header.KID]
+		if !k {
+			signaturesErr = errors.Join(signaturesErr, fmt.Errorf("key %v not in did web %v", header.KID, header.Issuer))
+			continue
+		}
+
+		payload, err := jws.Verify(originalJWS, jws.WithKey(header.Algorithm, key.JWK))
+		if err != nil {
+			signaturesErr = errors.Join(signaturesErr, err)
+			continue
+		}
+
+		vc := &VerifiableCredential{}
+
+		err = json.Unmarshal(payload, vc)
+		if err != nil {
+			signaturesErr = errors.Join(signaturesErr, err)
+			continue
+		}
+		vp.signature = &JWSSignature{
+			OriginalJWT: originalJWS,
+			DID:         didweb,
+			JWTHeader:   header,
+		}
+
+		return nil
+	}
+	return signaturesErr
+}
+
+func (vp *VerifiablePresentation) GetOriginalJWS() []byte {
+	if vp.signature != nil {
+		return vp.signature.OriginalJWT
+	}
+	return nil
+}
+
 func NewEmptyVerifiableCredential() *VerifiableCredential {
 	vc := &VerifiableCredential{}
 
@@ -313,6 +360,30 @@ func WithValidFromNow() VerifiableCredentialOption {
 	}
 }
 
+func WithValidUntil(t time.Time) VerifiableCredentialOption {
+	return &baseVCOption{
+		f: func(vc *VerifiableCredential) error {
+			if !vc.ValidUntil.IsZero() {
+				return errors.New("validUntil already set")
+			}
+			vc.ValidUntil = t
+			return nil
+		},
+	}
+}
+
+func WithValidFor(t time.Duration) VerifiableCredentialOption {
+	return &baseVCOption{
+		f: func(vc *VerifiableCredential) error {
+			if !vc.ValidUntil.IsZero() {
+				return errors.New("validUntil already set")
+			}
+			vc.ValidUntil = time.Now().Add(t)
+			return nil
+		},
+	}
+}
+
 func WithAdditionalTypes(types ...string) VerifiableCredentialOption {
 	return &baseVCOption{
 		f: func(vc *VerifiableCredential) error {
@@ -355,17 +426,23 @@ type JWSSignature struct {
 }
 
 // VerifiableCredential implements the shape of a VC as defined in https://www.w3.org/TR/vc-data-model/#basic-concepts
+// updated to https://www.w3.org/TR/vc-data-model-2.0/#verifiable-credentials with version 0.2.9
 type VerifiableCredential struct {
 	Context           Context           `json:"@context" validate:"required"`
-	Type              VCType            `json:"type" validate:"required"`
-	IssuanceDate      string            `json:"issuanceDate,omitempty,omitzero" validate:"omitempty"`
-	ExpirationDate    string            `json:"expirationDate,omitempty,omitzero"`
-	CredentialSubject CredentialSubject `json:"credentialSubject,omitempty,omitzero" validate:"omitempty"`
-	Issuer            string            `json:"issuer,omitzero" validate:"omitempty"`
 	ID                string            `json:"id" validate:"required"`
+	Type              VCType            `json:"type" validate:"required"`
+	Name              string            `json:"name,omitempty" validate:"omitempty"`
+	Description       string            `json:"description,omitempty" validate:"omitempty"`
+	Issuer            string            `json:"issuer,omitzero" validate:"omitempty"`
+	CredentialSubject CredentialSubject `json:"credentialSubject,omitempty,omitzero" validate:"omitempty"`
 	ValidFrom         time.Time         `json:"validFrom,omitzero" validate:"omitempty"`
 	ValidUntil        time.Time         `json:"validUntil,omitzero" validate:"omitempty"`
-	Name              string            `json:"name,omitempty" validate:"omitempty"`
+	CredentialsStatus any               `json:"credentialStatus,omitempty" validate:"omitempty"`
+	CredentialSchema  any               `json:"credentialSchema,omitempty" validate:"omitempty"`
+	RefreshService    any               `json:"refreshService,omitempty" validate:"omitempty"`
+	TermsOfUse        any               `json:"termsOfUse,omitempty" validate:"omitempty"`
+	IssuanceDate      string            `json:"issuanceDate,omitempty,omitzero" validate:"omitempty"` //non-standard
+	ExpirationDate    string            `json:"expirationDate,omitempty,omitzero"`                    //non-standard
 	Proof             *Proofs           `json:"proof,omitempty"`
 	Evidence          any               `json:"evidence,omitempty"`
 	proc              *ld.JsonLdProcessor
@@ -373,7 +450,6 @@ type VerifiableCredential struct {
 	mux               sync.Mutex
 	once              sync.Once
 	signature         *JWSSignature
-	//verifyOptions     verifyOptions
 }
 
 func (c *VerifiableCredential) ToMap() (map[string]interface{}, error) {
@@ -517,10 +593,10 @@ func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
 
 		now := time.Now()
 
-		if now.UnixMilli() < c.signature.JWTHeader.IAT.UnixMilli() {
+		if now.UnixMilli() < c.signature.JWTHeader.IAT.UnixMilli() && c.signature.JWTHeader.EXP.UnixMilli() > 0 {
 			return fmt.Errorf("verifiableCredential issuance date is in the future")
 		}
-		if now.UnixMilli() > c.signature.JWTHeader.EXP.UnixMilli() {
+		if now.UnixMilli() > c.signature.JWTHeader.EXP.UnixMilli() && c.signature.JWTHeader.EXP.UnixMilli() > 0 {
 			return fmt.Errorf("verifiableCredential not valid anymore")
 		}
 
@@ -816,23 +892,32 @@ func (c *Context) UnmarshalJSON(dat []byte) error {
 				return err
 			}
 			for _, ele := range nss {
-				n, k := ele.(map[string]string)
-				if k {
-					for k, e := range n {
+
+				switch v := ele.(type) {
+				case map[string]string:
+					for k, e := range v {
 						ns = append(ns, Namespace{
 							Namespace: k,
 							URL:       e,
 						})
 					}
-
-				}
-				s, k := ele.(string)
-				if k {
+				case string:
 					ns = append(ns, Namespace{
 						Namespace: "",
-						URL:       s,
+						URL:       v,
 					})
-				} else {
+				case map[string]interface{}:
+					for k, e := range v {
+						u, ok := e.(string)
+						if !ok {
+							return errors.New("context not correctly defined")
+						}
+						ns = append(ns, Namespace{
+							Namespace: k,
+							URL:       u,
+						})
+					}
+				default:
 					return errors.New("context not correctly defined")
 				}
 			}

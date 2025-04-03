@@ -65,12 +65,16 @@ func TestCompliance(t *testing.T) {
 	// this will be used every time we need an address
 
 	// generate a VerifiableCredential V2 with an id and of type gx:Address
-	addressVC, _ := vc.NewEmptyVerifiableCredentialV2(
+	addressVC, err := vc.NewEmptyVerifiableCredentialV2(
 		vc.WithVCID(idprefix+"address"),
 		vc.WithValidFromNow(),
 		vc.WithGaiaXContext(),
 		vc.WithIssuer(issuer),
-		vc.WithAdditionalTypes("gx:Address"))
+		vc.WithAdditionalTypes("gx:Address"),
+		vc.WithValidFor(time.Hour*24*365))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// use the struct for the Address, minimal it has to contain this fields but there are many more
 	// check the struct for more information

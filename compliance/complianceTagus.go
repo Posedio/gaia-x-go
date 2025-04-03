@@ -88,6 +88,10 @@ func (c *TagusCompliance) SelfSign(vc *vcTypes.VerifiableCredential) error {
 	return nil
 }
 
+func (c *TagusCompliance) SelfSignPresentation(_ *vcTypes.VerifiablePresentation, _ time.Duration) error {
+	return errors.New("not supported by tagus")
+}
+
 func (c *TagusCompliance) ReSelfSign(credential *vcTypes.VerifiableCredential) error {
 	credential.Proof = nil
 	_, err := c.SelfSignVC(credential)

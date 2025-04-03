@@ -15,6 +15,7 @@ Contributions are welcome, just open a pull request, please add/extend tests if 
 
 ## Contributor
 Stefan Dumss, MIVP TU Wien
+
 Stefan Dumss, Posedio GmbH
 
 ## License
@@ -22,6 +23,7 @@ Released under MIT License, see the LICENCE file
 
 
 Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
+
 Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 
 

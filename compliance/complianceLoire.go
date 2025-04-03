@@ -43,6 +43,62 @@ func (c *LoireCompliance) SelfSign(vc *vcTypes.VerifiableCredential) error {
 	return err
 }
 
+func (c *LoireCompliance) SelfSignPresentation(vp *vcTypes.VerifiablePresentation, validFor time.Duration) error {
+	if vp == nil {
+		return errors.New("vc can not be nil")
+	}
+
+	headers := jws.NewHeaders()
+	err := headers.Set("alg", jwa.PS256)
+	if err != nil {
+		return err
+	}
+	err = headers.Set("iss", c.issuer)
+	if err != nil {
+		return err
+	}
+	err = headers.Set("kid", c.verificationMethod)
+	if err != nil {
+		return err
+	}
+	err = headers.Set("iat", time.Now().UnixMilli())
+	if err != nil {
+		return err
+	}
+
+	if validFor != 0 {
+		err = headers.Set("exp", time.Now().Add(validFor).UnixMilli())
+		if err != nil {
+			return err
+		}
+	}
+
+	err = headers.Set("cty", "vp")
+	if err != nil {
+		return err
+	}
+	err = headers.Set("typ", "vp+jwt")
+	if err != nil {
+		return err
+	}
+
+	jsc, err := vp.ToJson()
+	if err != nil {
+		return err
+	}
+
+	buf, err := jws.Sign(jsc, jws.WithKey(jwa.PS256, c.key, jws.WithProtectedHeaders(headers)))
+	if err != nil {
+		return err
+	}
+
+	err = vp.AddSignature(buf)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *LoireCompliance) ReSelfSign(credential *vcTypes.VerifiableCredential) error {
 	credential.Proof = nil
 	_, err := c.SelfSignVC(credential)
@@ -71,10 +127,14 @@ func (c *LoireCompliance) SelfSignVC(vc *vcTypes.VerifiableCredential) (*vcTypes
 	if err != nil {
 		return nil, err
 	}
-	err = headers.Set("exp", time.Now().UnixMilli()+(time.Hour*24*30).Milliseconds())
-	if err != nil {
-		return nil, err
+
+	if !vc.ValidUntil.IsZero() {
+		err = headers.Set("exp", vc.ValidUntil.UnixMilli())
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	err = headers.Set("cty", "vc+ld")
 	if err != nil {
 		return nil, err
