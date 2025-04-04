@@ -643,7 +643,7 @@ func TestCompliance(t *testing.T) {
 		},
 		Means:             []string{"Means used to transfer the customer's stored data to another provider. String"},
 		Pricing:           vc.WithAnyURI("https://www.posedio.com/pricing"),
-		Resource:          "https://did.dumss.me/PointOfPresence#cs",
+		Resource:          pointOfPresenceCS.ID,
 		DeletionMethods:   []string{"none"},
 		DeletionTimeframe: "years",
 	}
