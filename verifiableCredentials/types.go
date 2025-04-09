@@ -892,21 +892,16 @@ func (c *Context) UnmarshalJSON(dat []byte) error {
 				return err
 			}
 			for _, ele := range nss {
-
 				switch v := ele.(type) {
-				case map[string]string:
-					for k, e := range v {
-						ns = append(ns, Namespace{
-							Namespace: k,
-							URL:       e,
-						})
-					}
 				case string:
 					ns = append(ns, Namespace{
 						Namespace: "",
 						URL:       v,
 					})
 				case map[string]interface{}:
+					if len(v) > 1 {
+						return errors.New("context not correctly defined")
+					}
 					for k, e := range v {
 						u, ok := e.(string)
 						if !ok {

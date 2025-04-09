@@ -15,7 +15,7 @@ import (
 	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
 )
 
-func TestCompliance(t *testing.T) {
+func TestComplianceLevel1(t *testing.T) {
 	var idprefix = "https://did.dumss.me/"
 	var issuer = "did:web:did.dumss.me"
 	var countryCode = "AT"
@@ -1194,6 +1194,98 @@ func TestCompliance(t *testing.T) {
 	}
 	vp.AddEnvelopedVC(dataAccountExportVC.GetOriginalJWS())
 
+	//// Additional for Level 1 Compliance
+
+	// ___________________________________ criteria ___________________________________
+	// The Provider shall describe the Permissions, Requirements and Constraints of the Service Offering using a common
+	//Domain-Specific Language (DSL) in the self-description.
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/docs/labelling-criteria.md#criterion-p131
+	// https://docs.gaia-x.eu/policy-rules-committee/compliance-document/24.11/criteria_cloud_services/#P1.3.1
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/src/vp-validation/filter/service-offering-has-service-policy.filter.ts
+
+	AccessPolicyVC, _ := vc.NewEmptyVerifiableCredentialV2(
+		vc.WithVCID(idprefix+"AccessPolicy"),
+		vc.WithIssuer(issuer),
+		vc.WithValidFromNow(),
+		vc.WithGaiaXContext(),
+		vc.WithAdditionalTypes("gx:AccessUsagePolicy"),
+	)
+
+	AccessPolicyCS := gxTypes.AccessUsagePolicy{
+		PolicyLanguage: "Rego",
+		PolicyDocument: "http://posedio.com/PolicyDocument",
+	}
+
+	AccessPolicyCS.ID = AccessPolicyVC.ID + "#cs"
+
+	err = AccessPolicyVC.AddToCredentialSubject(AccessPolicyCS)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = connector.SelfSign(AccessPolicyVC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vp.AddEnvelopedVC(AccessPolicyVC.GetOriginalJWS())
+
+	// ___________________________________ criteria ___________________________________
+	// The Provider shall offer the ability to establish a contract under Union or EU/EEA/Member State law and specifically
+	//addressing GDPR requirements.
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/docs/labelling-criteria.md#criterion-p211
+	// https://docs.gaia-x.eu/policy-rules-committee/compliance-document/24.11/criteria_cloud_services/#P2.1.1
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/src/vp-validation/filter/service-offering-has-data-protection-and-service-agreement.filter.ts
+
+	ServiceAgreementOfferVC, _ := vc.NewEmptyVerifiableCredentialV2(
+		vc.WithVCID(idprefix+"ServiceAgreementOffer"),
+		vc.WithIssuer(issuer),
+		vc.WithValidFromNow(),
+		vc.WithGaiaXContext(),
+		vc.WithAdditionalTypes("gx:ServiceAgreementOffer"),
+	)
+
+	ServiceAgreementOfferCS := gxTypes.LegalDocument{
+		URL: vc.WithAnyURI("https://www.posedio.com/ServiceAgreementOffer"),
+	}
+
+	ServiceAgreementOfferCS.ID = ServiceAgreementOfferVC.ID + "#cs"
+
+	err = ServiceAgreementOfferVC.AddToCredentialSubject(ServiceAgreementOfferCS)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = connector.SelfSign(ServiceAgreementOfferVC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vp.AddEnvelopedVC(ServiceAgreementOfferVC.GetOriginalJWS())
+
+	DataProtectionRegulationMeasuresVC, _ := vc.NewEmptyVerifiableCredentialV2(
+		vc.WithVCID(idprefix+"DataProtectionRegulationMeasures"),
+		vc.WithIssuer(issuer),
+		vc.WithValidFromNow(),
+		vc.WithGaiaXContext(),
+		vc.WithAdditionalTypes("gx:DataProtectionRegulationMeasures"),
+	)
+
+	DataProtectionRegulationMeasuresCS := gxTypes.LegalDocument{
+		URL: vc.WithAnyURI("https://www.posedio.com/DataProtectionRegulationMeasures"),
+	}
+
+	DataProtectionRegulationMeasuresCS.ID = DataProtectionRegulationMeasuresVC.ID + "#cs"
+
+	err = DataProtectionRegulationMeasuresVC.AddToCredentialSubject(DataProtectionRegulationMeasuresCS)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = connector.SelfSign(DataProtectionRegulationMeasuresVC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vp.AddEnvelopedVC(DataProtectionRegulationMeasuresVC.GetOriginalJWS())
+
 	////////////////////
 	// Service Offering
 	///////////////////
@@ -1247,6 +1339,8 @@ func TestCompliance(t *testing.T) {
 	serviceOffering.AddLegalDocumentURI(RoleAndResponsibilities.ID)
 	serviceOffering.AddLegalDocumentURI(SecurityIncidentManagement.ID)
 	serviceOffering.AddLegalDocumentURI(UserDocumentationMaintenance.ID)
+	serviceOffering.AddLegalDocumentURI(ServiceAgreementOfferCS.ID)
+	serviceOffering.AddLegalDocumentURI(DataProtectionRegulationMeasuresCS.ID)
 
 	serviceOffering.ProvidedBy.ID = companyCS.ID
 	serviceOffering.ProviderContactInformation.ID = providerContactInformation.ID
@@ -1255,6 +1349,7 @@ func TestCompliance(t *testing.T) {
 	serviceOffering.AddServiceOfferingTermsAndConditionsURI(TermsAndConditionsCS.ID)
 	serviceOffering.ServiceScope = "EuPG"
 	serviceOffering.AddSubContractorURI(subcontractorCS.ID)
+	serviceOffering.ServicePolicy = []gxTypes.AccessUsagePolicy{{GaiaXEntity: gxTypes.GaiaXEntity{CredentialSubjectShape: vc.CredentialSubjectShape{ID: AccessPolicyCS.ID, Type: "gx:AccessUsagePolicy"}}}}
 
 	err = ServiceOfferingVC.AddToCredentialSubject(serviceOffering)
 	if err != nil {
@@ -1276,7 +1371,7 @@ func TestCompliance(t *testing.T) {
 	// show verifiable presentation
 	t.Log(vp)
 
-	offering, _, err := connector.SignServiceOffering(compliance.ServiceOfferingComplianceOptions{ServiceOfferingVP: vp, ServiceOfferingLabelLevel: compliance.Level0, Id: idprefix + "complianceCredential"})
+	offering, _, err := connector.SignServiceOffering(compliance.ServiceOfferingComplianceOptions{ServiceOfferingVP: vp, ServiceOfferingLabelLevel: compliance.Level1, Id: idprefix + "complianceCredential"})
 	if err != nil {
 		t.Fatal(err)
 	}

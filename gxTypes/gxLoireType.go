@@ -615,7 +615,7 @@ type ServiceOffering struct {
 	// Endpoint through which the Service Offering can be accessed
 	Endpoint *Endpoint `json:"gx:endpoint,omitempty"`
 	// List of Resource references where service is hosted
-	HostedOn []string `json:"gx:hostedOn,omitempty"`
+	HostedOn []ResourceInterface `json:"gx:hostedOn,omitempty"`
 	// Plain text describing the service scope
 	ServiceScope string `json:"gx:serviceScope,omitempty"`
 	// A list of legal documents in relation to the service or the customer
@@ -874,10 +874,11 @@ type SubContractor struct {
 
 // AccessUsagePolicy represents an access or usage policy expressed using a DSL
 type AccessUsagePolicy struct {
+	GaiaXEntity
 	// The language in which the policy is expressed
-	PolicyLanguage string `json:"gx:policyLanguage"`
+	PolicyLanguage string `json:"gx:policyLanguage,omitempty"`
 	// A link to the actual policy or the content of the policy itself
-	PolicyDocument string `json:"gx:policyDocument"`
+	PolicyDocument string `json:"gx:policyDocument,omitempty"`
 }
 
 // EnergyUsageEfficiency represents the efficiency of energy usage in a resource

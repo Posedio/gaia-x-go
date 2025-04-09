@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"github.com/go-playground/validator/v10"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -210,8 +209,6 @@ func NewStoreFromFile(path string, keyPhrase []byte) (s *Store, err error) {
 	if err != nil {
 		return nil, err
 	}
-
-	log.Println(vcList)
 
 	for _, vc := range vcList {
 		switch vc.(type) {
