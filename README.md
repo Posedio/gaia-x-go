@@ -2,8 +2,10 @@
 
 ## Package for Gaia-X Compliance in Golang
 
-This project aims to showcase interactions with the Gaia-X Digital Clearing Houses which are the center part to reach Gaia-X Compliance.
-It is not meant for any production usage, although it enables the needed verification mechanism. 
+This project aims to showcase interactions with the Gaia-X Digital Clearing Houses (Versions Tagus and Loire) which are the center part to reach Gaia-X Compliance.
+It is not meant for production usage, and it is a private project for educational use, although it enables some of the needed verification mechanism. 
+
+For the official Gaia-X Repositories pleas visit https://gitlab.com/gaia-x/ or see https://docs.gaia-x.eu/
 
 ## Usage
 
