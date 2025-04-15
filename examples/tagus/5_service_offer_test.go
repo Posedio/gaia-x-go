@@ -7,6 +7,7 @@ package loire
 
 import (
 	"github.com/Posedio/gaia-x-go/compliance"
+	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"testing"
 )
 
@@ -28,6 +29,11 @@ func TestCompliantServiceOffering(t *testing.T) {
 
 	// retrieve the Legal Registration Number VC with the provided options
 	legalRegistrationNumberVC, err := connector.SignLegalRegistrationNumber(lrnOptions)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = legalRegistrationNumberVC.Verify(vc.IsGaiaXTrustedIssuer(compliance.CISPEV1Notary.String()))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -56,7 +56,7 @@ var SecuritySuitesJWS2020 = Namespace{
 // VerifiablePresentation implements the shape of a verifiable presentation as defined in: https://www.w3.org/TR/vc-data-model/#presentations
 // since Gaia-X has not defined a proof method yet, this is still open
 type VerifiablePresentation struct {
-	Context              string                  `json:"@context" validate:"required"`
+	Context              Context                 `json:"@context" validate:"required"`
 	Id                   string                  `json:"id,omitempty,omitzero"`
 	Type                 string                  `json:"type" validate:"required"`
 	VerifiableCredential []*VerifiableCredential `json:"verifiableCredential" validate:"required"`
@@ -75,7 +75,10 @@ type VerifiablePresentation struct {
 
 func NewEmptyVerifiablePresentation() *VerifiablePresentation {
 	return &VerifiablePresentation{
-		Context:              W3CredentialsUrl,
+		Context: Context{
+			Context:  []Namespace{W3Credentials},
+			wasSlice: true,
+		},
 		Type:                 "VerifiablePresentation",
 		VerifiableCredential: make([]*VerifiableCredential, 0),
 		Proof:                nil,
@@ -84,7 +87,10 @@ func NewEmptyVerifiablePresentation() *VerifiablePresentation {
 
 func NewEmptyVerifiablePresentationV2() *VerifiablePresentation {
 	return &VerifiablePresentation{
-		Context:              W3CCredentialsUrlV2,
+		Context: Context{
+			Context:  []Namespace{W3CredentialsV2},
+			wasSlice: true,
+		},
 		Type:                 "VerifiablePresentation",
 		VerifiableCredential: make([]*VerifiableCredential, 0),
 		Proof:                nil,
@@ -619,7 +625,7 @@ func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
 		}
 
 		if vO.isTrustedIssuer {
-			get, err := http.Get("https://gx-registry.gxdch.dih.telekom.com/v2/api/trusted-issuers")
+			get, err := http.Get(vO.trustedIssuerUrl)
 			if err != nil {
 				return err
 			}
@@ -630,8 +636,10 @@ func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
 			if err != nil {
 				return err
 			}
-
-			if !(strings.Contains(string(all), host+"/v1") || strings.Contains(string(all), host+"/v2")) {
+			if get.StatusCode != 200 {
+				return fmt.Errorf("unexpected status code from trustedIssuerUrl server: %v", string(all))
+			}
+			if !(strings.Contains(string(all), host)) {
 				return errors.New("is not a trusted gx issuer")
 			}
 		}
@@ -1126,7 +1134,7 @@ type verifyOptions struct {
 	mux                   sync.RWMutex
 	isTrustedIssuer       bool
 	issuerMatch           bool
-	notary                string
+	trustedIssuerUrl      string
 }
 
 func UseOldSignAlgorithm() *VerifyOption {
@@ -1136,10 +1144,12 @@ func UseOldSignAlgorithm() *VerifyOption {
 	}}
 }
 
-func IsGaiaXTrustedIssuer(notary string) *VerifyOption {
+func IsGaiaXTrustedIssuer(trustedIssuerUrl string) *VerifyOption {
 	return &VerifyOption{f: func(option *verifyOptions) error {
-		if notary == "" {
-			notary = "https://gx-registry.gxdch.dih.telekom.com/v2/api/trusted-issuers"
+		if trustedIssuerUrl == "" {
+			option.trustedIssuerUrl = "https://gx-registry.gxdch.dih.telekom.com/v2/api/trusted-issuers"
+		} else {
+			option.trustedIssuerUrl = trustedIssuerUrl
 		}
 		option.isTrustedIssuer = true
 		return nil

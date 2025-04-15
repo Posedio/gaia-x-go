@@ -7,6 +7,7 @@ Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 package loire
 
 import (
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 
@@ -22,7 +23,7 @@ func TestCompliance(t *testing.T) {
 	var countryName = "Austria"
 
 	// instantiate a Compliance Connector for the Loire release
-	connector, err := compliance.NewComplianceConnector(compliance.V2Staging, compliance.ArsysV2Notary, "loire", key, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
+	connector, err := compliance.NewComplianceConnector(compliance.V2Staging, compliance.DeltaDaoV2Notary, "loire", key, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,8 +40,11 @@ func TestCompliance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	t.Log(LRNVC)
+
 	// verify the credential (not needed but recommended)
-	err = LRNVC.Verify(vc.IssuerMatch(), vc.IsGaiaXTrustedIssuer(compliance.ArsysV2Notary.String()))
+	err = LRNVC.Verify(vc.IssuerMatch(), vc.IsGaiaXTrustedIssuer(compliance.TSystemRegistryV2.TrustedIssuer()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1270,6 +1274,8 @@ func TestCompliance(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	t.Log(ServiceOfferingVC)
+
 	vp.AddEnvelopedVC(ServiceOfferingVC.GetOriginalJWS())
 
 	//// ------------------- ////
@@ -1282,13 +1288,27 @@ func TestCompliance(t *testing.T) {
 	}
 	t.Log(offering)
 
+	vp.AddEnvelopedVC(offering.GetOriginalJWS())
+
+	validFor := offering.ValidUntil.Sub(time.Now())
+
+	err = connector.SelfSignPresentation(vp, validFor)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vpfromjwt, err := vc.VPFROMJWT(vp.GetOriginalJWS())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, vp.String(), vpfromjwt.String())
+
 	// decode the verifiable presentation (only copy of it)
 	credentials, err := vp.DecodeEnvelopedCredentials()
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	credentials = append(credentials, offering)
 
 	// optional storage of the vc
 	store := vc.NewStore()

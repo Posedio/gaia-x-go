@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
+	"strings"
 	"time"
 
 	"github.com/Posedio/gaia-x-go/did"
@@ -44,28 +45,37 @@ const (
 	EORI    RegistrationNumberType = "gx:EORI"
 )
 
-type RegistrationNumberUrl string
+type NotaryURL string
 
 const (
-	AireV1Notary     RegistrationNumberUrl = "https://gx-notary.airenetworks.es/v1/registrationNumberVC"
-	ArsysV1Notary    RegistrationNumberUrl = "https://gx-notary.arsys.es/v1/registrationNumberVC"
-	ArubaV1Notary    RegistrationNumberUrl = "https://gx-notary.aruba.it/v1/registrationNumberVC"
-	TSystemV1Notary  RegistrationNumberUrl = "https://gx-notary.gxdch.dih.telekom.com/v1/registrationNumberVC"
-	DeltaDaoV1Notary RegistrationNumberUrl = "https://www.delta-dao.com/notary/v1/registrationNumberVC"
-	OVHV1Notary      RegistrationNumberUrl = "https://notary.gxdch.gaiax.ovh/v1/registrationNumberVC"
-	NeustaV1Notary   RegistrationNumberUrl = "https://aerospace-digital-exchange.eu/notary/v1/registrationNumberVC"
-	ProximusV1Notary RegistrationNumberUrl = "https://gx-notary.gxdch.proximus.eu/v1/registrationNumberVC"
-	PfalzkomV1Notary RegistrationNumberUrl = "https://trust-anker.pfalzkom-gxdch.de/v1/registrationNumberVC"
-	CISPEV1Notary    RegistrationNumberUrl = "https://notary.cispe.gxdch.clouddataengine.io/v1/registrationNumberVC"
-	ArsysV2Notary    RegistrationNumberUrl = "https://gx-notary.arsys.es/v2/registration-numbers"
-	TSystemV2Notary  RegistrationNumberUrl = "https://gx-notary.gxdch.dih.telekom.com/v2/registration-numbers"
-	DeltaDaoV2Notary RegistrationNumberUrl = "https://www.delta-dao.com/notary/v2/registration-numbers"
-	NeustaV2Notary   RegistrationNumberUrl = "https://aerospace-digital-exchange.eu/notary/v2/registration-numbers"
-	LabV1Notary      RegistrationNumberUrl = "https://registrationnumber.notary.lab.gaia-x.eu/v1/registrationNumberVC"
+	AireV1Notary     NotaryURL = "https://gx-notary.airenetworks.es/v1/"
+	ArsysV1Notary    NotaryURL = "https://gx-notary.arsys.es/v1/"
+	ArubaV1Notary    NotaryURL = "https://gx-notary.aruba.it/v1/"
+	TSystemV1Notary  NotaryURL = "https://gx-notary.gxdch.dih.telekom.com/v1/"
+	DeltaDaoV1Notary NotaryURL = "https://www.delta-dao.com/notary/v1/"
+	OVHV1Notary      NotaryURL = "https://notary.gxdch.gaiax.ovh/v1/"
+	NeustaV1Notary   NotaryURL = "https://aerospace-digital-exchange.eu/notary/v1/"
+	ProximusV1Notary NotaryURL = "https://gx-notary.gxdch.proximus.eu/v1/"
+	PfalzkomV1Notary NotaryURL = "https://trust-anker.pfalzkom-gxdch.de/v1/"
+	CISPEV1Notary    NotaryURL = "https://notary.cispe.gxdch.clouddataengine.io/v1/"
+	ArsysV2Notary    NotaryURL = "https://gx-notary.arsys.es/v2/"
+	TSystemV2Notary  NotaryURL = "https://gx-notary.gxdch.dih.telekom.com/v2/"
+	DeltaDaoV2Notary NotaryURL = "https://www.delta-dao.com/notary/v2/"
+	NeustaV2Notary   NotaryURL = "https://aerospace-digital-exchange.eu/notary/v2/"
+	LabV1Notary      NotaryURL = "https://registrationnumber.notary.lab.gaia-x.eu/v1/"
 )
 
-func (rn RegistrationNumberUrl) String() string {
-	return string(rn)
+func (nc NotaryURL) String() string {
+	return string(nc)
+}
+
+func (nc NotaryURL) RegistrationNumberURL() string {
+	if strings.Contains(string(nc), "v1") {
+		return nc.String() + "registrationNumberVC"
+	} else if strings.Contains(string(nc), "v2") {
+		return nc.String() + "registration-numbers"
+	}
+	return ""
 }
 
 type ServiceUrl string
@@ -100,6 +110,15 @@ type RegistryUrl string
 
 func (r RegistryUrl) String() string {
 	return string(r)
+}
+
+func (r RegistryUrl) TrustedIssuer() string {
+	if strings.Contains(string(r), "v1") || strings.Contains(string(r), "v2") {
+		url := string(r) + "api/trusted-issuers"
+
+		return url
+	}
+	return ""
 }
 
 const (
@@ -147,7 +166,7 @@ var participantNamespace = vcTypes.Namespace{
 	URL:       participantURL,
 }
 
-func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl RegistrationNumberUrl, version string, key jwk.Key, issuer string, verificationMethod string) (Compliance, error) {
+func NewComplianceConnector(signUrl ServiceUrl, notaryUrl NotaryURL, version string, key jwk.Key, issuer string, verificationMethod string) (Compliance, error) {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 2
 	retryClient.RetryWaitMax = 45 * time.Second
@@ -193,15 +212,15 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 	if version == "22.10" || version == "tagus" || version == "Tagus" {
 
 		c := &TagusCompliance{
-			signUrl:               signUrl,
-			version:               version,
-			key:                   key,
-			issuer:                issuer,
-			registrationNumberUrl: registrationNumberUrl,
-			verificationMethod:    verificationMethod,
-			client:                hc,
-			did:                   didResolved,
-			validate:              validator.New(),
+			signUrl:            signUrl,
+			version:            version,
+			key:                key,
+			issuer:             issuer,
+			notaryURL:          notaryUrl,
+			verificationMethod: verificationMethod,
+			client:             hc,
+			did:                didResolved,
+			validate:           validator.New(),
 		}
 
 		err := c.validate.RegisterValidation("validateRegistrationNumberType", ValidateRegistrationNumberType)
@@ -213,15 +232,15 @@ func NewComplianceConnector(signUrl ServiceUrl, registrationNumberUrl Registrati
 	} else if version == "24.11" || version == "loire" || version == "Loire" {
 
 		c := &LoireCompliance{
-			signUrl:               signUrl,
-			version:               version,
-			key:                   key,
-			issuer:                issuer,
-			registrationNumberUrl: registrationNumberUrl,
-			verificationMethod:    verificationMethod,
-			client:                hc,
-			did:                   didResolved,
-			validate:              validator.New(),
+			signUrl:            signUrl,
+			version:            version,
+			key:                key,
+			issuer:             issuer,
+			notaryURL:          notaryUrl,
+			verificationMethod: verificationMethod,
+			client:             hc,
+			did:                didResolved,
+			validate:           validator.New(),
 		}
 
 		err := c.validate.RegisterValidation("validateRegistrationNumberType", ValidateRegistrationNumberType)
