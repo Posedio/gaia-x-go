@@ -26,15 +26,15 @@ import (
 
 // LoireCompliance is compatibility is checked up to clearinghouse 1.11.1
 type LoireCompliance struct {
-	signUrl               ServiceUrl
-	version               string
-	issuer                string
-	verificationMethod    string
-	key                   jwk.Key
-	client                *http.Client
-	did                   *did.DID
-	registrationNumberUrl RegistrationNumberUrl
-	validate              *validator.Validate
+	signUrl            ServiceUrl
+	version            string
+	issuer             string
+	verificationMethod string
+	key                jwk.Key
+	client             *http.Client
+	did                *did.DID
+	notaryURL          NotaryURL
+	validate           *validator.Validate
 }
 
 // SelfSign adds a crypto proof to the self-description
@@ -173,7 +173,7 @@ func (c *LoireCompliance) SignLegalRegistrationNumber(options LegalRegistrationN
 		return nil, err
 	}
 
-	rURL := c.registrationNumberUrl.String()
+	rURL := c.notaryURL.RegistrationNumberURL()
 
 	switch options.Type {
 	case VatID:

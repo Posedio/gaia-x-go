@@ -27,15 +27,15 @@ import (
 )
 
 type TagusCompliance struct {
-	signUrl               ServiceUrl
-	version               string
-	issuer                string
-	verificationMethod    string
-	key                   jwk.Key
-	client                *http.Client
-	did                   *did.DID
-	registrationNumberUrl RegistrationNumberUrl
-	validate              *validator.Validate
+	signUrl            ServiceUrl
+	version            string
+	issuer             string
+	verificationMethod string
+	key                jwk.Key
+	client             *http.Client
+	did                *did.DID
+	notaryURL          NotaryURL
+	validate           *validator.Validate
 }
 
 // SelfSign adds a crypto proof to the self-description
@@ -211,7 +211,7 @@ func (c *TagusCompliance) SignLegalRegistrationNumber(options LegalRegistrationN
 
 	escapedId := url.QueryEscape(options.Id)
 
-	req, err := http.NewRequest("POST", string(c.registrationNumberUrl)+"?vcid="+escapedId, bytes.NewBuffer(rnj))
+	req, err := http.NewRequest("POST", c.notaryURL.RegistrationNumberURL()+"?vcid="+escapedId, bytes.NewBuffer(rnj))
 	if err != nil {
 		return nil, err
 	}
