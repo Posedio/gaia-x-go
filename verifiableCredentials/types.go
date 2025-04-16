@@ -855,8 +855,7 @@ func (c *Namespace) MarshalJSON() ([]byte, error) {
 	if c.Namespace == "" {
 		return json.Marshal(c.URL)
 	}
-	ns := map[string]string{}
-	ns[c.Namespace] = c.URL
+	ns := map[string]string{c.Namespace: c.URL}
 	return json.Marshal(ns)
 }
 
@@ -872,16 +871,7 @@ func (c *Context) MarshalJSON() ([]byte, error) {
 		}
 		return json.Marshal(c.Context[0])
 	}
-	var x []interface{}
-
-	for _, i := range c.Context {
-		if i.Namespace == "" {
-			x = append(x, i.URL)
-		} else {
-			x = append(x, i)
-		}
-	}
-	b, err := json.Marshal(x)
+	b, err := json.Marshal(c.Context)
 	if err != nil {
 		return nil, err
 	}
