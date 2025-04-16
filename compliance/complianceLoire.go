@@ -345,6 +345,11 @@ func (c *LoireCompliance) SignServiceOffering(options ServiceOfferingComplianceO
 		return nil, nil, err
 	}
 
+	err = vp.AddSignature(buf)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	u := c.signUrl.String() + "/" + options.ServiceOfferingLabelLevel.String() + "?vcid=" + url.QueryEscape(options.Id)
 
 	req, err := http.NewRequest("POST", u, bytes.NewBuffer(buf))
