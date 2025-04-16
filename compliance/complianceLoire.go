@@ -8,6 +8,7 @@ package compliance
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/Posedio/gaia-x-go/gxTypes"
@@ -295,6 +296,12 @@ func (c *LoireCompliance) SelfSignSignTermsAndConditions(_ string) (*vcTypes.Ver
 }
 
 func (c *LoireCompliance) SignServiceOffering(options ServiceOfferingComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	return c.SignServiceOfferingWithContext(ctx, options)
+}
+
+func (c *LoireCompliance) SignServiceOfferingWithContext(ctx context.Context, options ServiceOfferingComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error) {
 	if options.ServiceOfferingVP == nil {
 		return nil, nil, errors.New("ServiceOfferingLoire is required")
 	}
@@ -352,7 +359,7 @@ func (c *LoireCompliance) SignServiceOffering(options ServiceOfferingComplianceO
 
 	u := c.signUrl.String() + "/" + options.ServiceOfferingLabelLevel.String() + "?vcid=" + url.QueryEscape(options.Id)
 
-	req, err := http.NewRequest("POST", u, bytes.NewBuffer(buf))
+	req, err := http.NewRequestWithContext(ctx, "POST", u, bytes.NewBuffer(buf))
 	if err != nil {
 		return nil, nil, err
 	}

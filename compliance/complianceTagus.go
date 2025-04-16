@@ -8,6 +8,7 @@ package compliance
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -455,6 +456,12 @@ func (c *TagusCompliance) SelfSignSignTermsAndConditions(id string) (*vcTypes.Ve
 }
 
 func (c *TagusCompliance) SignServiceOffering(options ServiceOfferingComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	return c.SignServiceOfferingWithContext(ctx, options)
+}
+
+func (c *TagusCompliance) SignServiceOfferingWithContext(ctx context.Context, options ServiceOfferingComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error) {
 	err := c.validate.Struct(options)
 	if err != nil {
 		return nil, nil, err
@@ -487,10 +494,11 @@ func (c *TagusCompliance) SignServiceOffering(options ServiceOfferingComplianceO
 		return nil, nil, err
 	}
 
-	req, err := http.NewRequest("POST", c.signUrl.String(), bytes.NewBuffer(vpJ))
+	req, err := http.NewRequestWithContext(ctx, "POST", c.signUrl.String(), bytes.NewBuffer(vpJ))
 	if err != nil {
 		return nil, nil, err
 	}
+
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.client.Do(req)

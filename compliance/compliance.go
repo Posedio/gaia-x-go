@@ -7,6 +7,7 @@ Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 package compliance
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
@@ -31,6 +32,7 @@ type Compliance interface {
 	SelfSignSignTermsAndConditions(id string) (*vcTypes.VerifiableCredential, error)
 	SelfSignCredentialSubject(id string, credentialSubject []map[string]interface{}) (*vcTypes.VerifiableCredential, error)
 	SignServiceOffering(options ServiceOfferingComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error)
+	SignServiceOfferingWithContext(ctx context.Context, options ServiceOfferingComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error)
 	GetTermsAndConditions(url RegistryUrl) (string, error)
 }
 
@@ -169,8 +171,8 @@ var participantNamespace = vcTypes.Namespace{
 func NewComplianceConnector(signUrl ServiceUrl, notaryUrl NotaryURL, version string, key jwk.Key, issuer string, verificationMethod string) (Compliance, error) {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 2
-	retryClient.RetryWaitMax = 45 * time.Second
-	retryClient.HTTPClient.Timeout = 45 * time.Second
+	retryClient.RetryWaitMax = 60 * time.Second
+	retryClient.HTTPClient.Timeout = 60 * time.Second
 	retryClient.Logger = nil
 	retryClient.CheckRetry = vcTypes.DefaultRetryPolicy
 
