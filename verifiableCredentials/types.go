@@ -855,7 +855,9 @@ func (c *Namespace) MarshalJSON() ([]byte, error) {
 	if c.Namespace == "" {
 		return json.Marshal(c.URL)
 	}
-	return json.Marshal(c)
+	ns := map[string]string{}
+	ns[c.Namespace] = c.URL
+	return json.Marshal(ns)
 }
 
 type Context struct {
