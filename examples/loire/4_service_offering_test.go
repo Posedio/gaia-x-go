@@ -7,6 +7,7 @@ Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 package loire
 
 import (
+	"context"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -1282,7 +1283,10 @@ func TestCompliance(t *testing.T) {
 	// show verifiable presentation
 	t.Log(vp)
 
-	offering, _, err := connector.SignServiceOffering(compliance.ServiceOfferingComplianceOptions{ServiceOfferingVP: vp, ServiceOfferingLabelLevel: compliance.Level0, Id: idprefix + "complianceCredential"})
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	offering, _, err := connector.SignServiceOfferingWithContext(ctx, compliance.ServiceOfferingComplianceOptions{ServiceOfferingVP: vp, ServiceOfferingLabelLevel: compliance.Level0, Id: idprefix + "complianceCredential"})
 	if err != nil {
 		t.Fatal(err)
 	}

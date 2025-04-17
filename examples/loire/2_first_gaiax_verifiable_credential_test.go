@@ -16,7 +16,7 @@ import (
 func TestFirstComplianceCredential(t *testing.T) {
 	// to retrieve the first Gaia-X credential, only the endpoint for the notary part of the Gaia-x Clearing Houses is needed
 	// rest can be empty for now. It is possible to choose from: compliance.LabV1, compliance.ArubaV1Notary and compliance.TSystemV1
-	connector, err := compliance.NewComplianceConnector("", compliance.TSystemV2Notary, "loire", nil, "", "")
+	connector, err := compliance.NewComplianceConnector("", compliance.DeltaDaoV2Notary, "loire", nil, "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestFirstComplianceCredential(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = legalRegistrationNumberVC.Verify(vc.IsGaiaXTrustedIssuer(compliance.TSystemV2Notary.String()), vc.IssuerMatch()) //cross check with other notary
+	err = legalRegistrationNumberVC.Verify(vc.IsGaiaXTrustedIssuer(compliance.TSystemRegistryV2.TrustedIssuer()), vc.IssuerMatch()) //cross check with other notary
 	if err != nil {
 		t.Fatal(err)
 	}
