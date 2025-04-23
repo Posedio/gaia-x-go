@@ -80,6 +80,10 @@ func (nc NotaryURL) RegistrationNumberURL() string {
 	return ""
 }
 
+func (nc NotaryURL) StatusURL() string {
+	return nc.String()
+}
+
 type ServiceUrl string
 
 func (su ServiceUrl) String() string {
@@ -108,6 +112,42 @@ const (
 	NeustaV2          ServiceUrl = "https://aerospace-digital-exchange.eu/compliance/v2/api/credential-offers"
 )
 
+type ComplianceServiceUrl string
+
+func (c ComplianceServiceUrl) CredentialOfferUrl() ServiceUrl {
+	return ServiceUrl(string(c) + "/credential-offer")
+}
+
+func (c ComplianceServiceUrl) StatusURL() string {
+	sURL := string(c)
+	if strings.Contains(sURL, "api") {
+		sURL = strings.Replace(sURL, "api", "", 1)
+	}
+	return sURL
+}
+
+const (
+	MainBranchCompliance        ComplianceServiceUrl = "https://compliance.lab.gaia-x.eu/main/api"
+	DevelopmentBranchCompliance ComplianceServiceUrl = "https://compliance.lab.gaia-x.eu/development/api"
+	V1BranchCompliance          ComplianceServiceUrl = "https://compliance.lab.gaia-x.eu/v1/api"
+	V1StagingCompliance         ComplianceServiceUrl = "https://compliance.lab.gaia-x.eu/v1-staging/api"
+	V2StagingCompliance         ComplianceServiceUrl = "https://compliance.lab.gaia-x.eu/main/api"
+	AireV1Compliance            ComplianceServiceUrl = "https://gx-compliance.airenetworks.es/v1"
+	ArsysV1Compliance           ComplianceServiceUrl = "https://gx-compliance.arsys.es/v1"
+	ArubaV1Compliance           ComplianceServiceUrl = "https://gx-compliance.aruba.it/v1"
+	TSystemsV1Compliance        ComplianceServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v1"
+	DeltaDAOV1Compliance        ComplianceServiceUrl = "https://www.delta-dao.com/compliance/v1"
+	OVHV1Compliance             ComplianceServiceUrl = "https://compliance.gxdch.gaiax.ovh/v1"
+	NeustaV1Compliance          ComplianceServiceUrl = "https://aerospace-digital-exchange.eu/compliance/v1"
+	ProximusV1Compliance        ComplianceServiceUrl = "https://gx-compliance.gxdch.proximus.eu/v1"
+	PfalzKomV1Compliance        ComplianceServiceUrl = "https://compliance.pfalzkom-gxdch.de/v1"
+	CISPEV1Compliance           ComplianceServiceUrl = "https://compliance.cispe.gxdch.clouddataengine.io/v1"
+	ArsysV2Compliance           ComplianceServiceUrl = "https://gx-compliance.arsys.es/v2/api"
+	TSystemsV2Compliance        ComplianceServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v2/api"
+	DeltaDaoV2Compliance        ComplianceServiceUrl = "https://www.delta-dao.com/compliance/v2/api"
+	NeustaV2Compliance          ComplianceServiceUrl = "https://aerospace-digital-exchange.eu/compliance/v2/api"
+)
+
 type RegistryUrl string
 
 func (r RegistryUrl) String() string {
@@ -121,6 +161,9 @@ func (r RegistryUrl) TrustedIssuer() string {
 		return url
 	}
 	return ""
+}
+func (r RegistryUrl) StatusURL() string {
+	return string(r)
 }
 
 const (
