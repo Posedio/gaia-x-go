@@ -47,6 +47,30 @@ const (
 	EORI    RegistrationNumberType = "gx:EORI"
 )
 
+type Endpoints struct {
+	Registry   RegistryUrl
+	Notary     NotaryURL
+	Compliance ComplianceServiceUrl
+}
+
+type GXDCH struct {
+	V1 Endpoints
+	V2 Endpoints
+}
+
+var DeltaDAO = GXDCH{
+	V1: Endpoints{
+		Notary:     DeltaDaoV1Notary,
+		Registry:   DeltaDaoRegistryV1,
+		Compliance: DeltaDAOV1Compliance,
+	},
+	V2: Endpoints{
+		Notary:     DeltaDaoV2Notary,
+		Registry:   DeltaDAORegistryV2,
+		Compliance: DeltaDaoV2Compliance,
+	},
+}
+
 type NotaryURL string
 
 const (
@@ -115,7 +139,7 @@ const (
 type ComplianceServiceUrl string
 
 func (c ComplianceServiceUrl) CredentialOfferUrl() ServiceUrl {
-	return ServiceUrl(string(c) + "/credential-offer")
+	return ServiceUrl(string(c) + "/credential-offers")
 }
 
 func (c ComplianceServiceUrl) StatusURL() string {
