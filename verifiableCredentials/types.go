@@ -1150,7 +1150,7 @@ func IsGaiaXTrustedIssuer(trustedIssuerUrl string) *VerifyOption {
 
 func IssuerMatch() *VerifyOption {
 	return &VerifyOption{f: func(option *verifyOptions) error {
-		option.isTrustedIssuer = true
+		option.issuerMatch = true
 		return nil
 	}}
 }
