@@ -290,6 +290,7 @@ type LegalPerson struct {
 	ParentOrganizationOf []LegalPerson `json:"gx:parentOrganizationOf,omitempty"`
 	// List of participants with a legal mandate on this entity
 	SubOrganisationOf []LegalPerson `json:"gx:subOrganisationOf,omitempty"`
+	Name              string        `json:"schema:name,omitempty"`
 }
 
 // RegistrationNumber is an abstract representation of different types of registration IDs
@@ -468,6 +469,7 @@ type BaseContainerImage struct {
 
 // Encryption represents encryption capabilities
 type Encryption struct {
+	vc.CredentialSubjectShape
 	// Supported algorithm used to encrypt
 	Cipher string `json:"gx:cipher"`
 	// Define key management method
@@ -1077,7 +1079,7 @@ type StorageConfiguration struct {
 	// Deduplication features available for the storage service
 	StorageDeduplication []string `json:"gx:storageDeduplication,omitempty"`
 	// Available encryption features
-	StorageEncryption []string `json:"gx:storageEncryption"`
+	StorageEncryption []Encryption `json:"gx:storageEncryption,omitempty"`
 	// Underlying data protection mechanism
 	StorageRedundancyMechanism []string `json:"gx:storageRedundancyMechanism,omitempty"`
 	// Available data protection features

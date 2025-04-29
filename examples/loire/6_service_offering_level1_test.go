@@ -115,9 +115,10 @@ func TestComplianceLevel1(t *testing.T) {
 		vc.WithIssuer(issuer),
 		vc.WithGaiaXContext())
 
-	// optional add a name, this is only the verifiable credential name and is just for information not for
-	// compliance
-	companyVC.Name = "Posedio GmbH"
+	companyVC.Context.Context = append(companyVC.Context.Context, vc.Namespace{
+		Namespace: "schema",
+		URL:       "https://schema.org/",
+	})
 
 	// with the LegalPerson struct we can define a legal person
 	companyCS := gxTypes.LegalPerson{
@@ -137,6 +138,9 @@ func TestComplianceLevel1(t *testing.T) {
 	}
 
 	companyCS.ID = companyVC.ID + "#cs"
+	// optional add a name, this is only the verifiable credential name and is just for information not for
+	// compliance
+	companyCS.Name = "Posedio GmbH"
 
 	err = companyVC.AddToCredentialSubject(companyCS)
 	if err != nil {
