@@ -1301,6 +1301,11 @@ func TestCompliance(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	err = vp.Verify(vc.IssuerMatch())
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	vpfromjwt, err := vc.VPFROMJWT(vp.GetOriginalJWS())
 	if err != nil {
 		t.Fatal(err)

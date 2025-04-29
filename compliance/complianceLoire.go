@@ -49,6 +49,10 @@ func (c *LoireCompliance) SelfSignPresentation(vp *vcTypes.VerifiablePresentatio
 		return errors.New("vc can not be nil")
 	}
 
+	if vp.Issuer == "" {
+		vp.Issuer = c.issuer
+	}
+
 	headers := jws.NewHeaders()
 	err := headers.Set("alg", jwa.PS256)
 	if err != nil {

@@ -1377,6 +1377,8 @@ func TestComplianceLevel1(t *testing.T) {
 	}
 	t.Log(offering)
 
+	t.Log(string(vp.GetOriginalJWS()))
+
 	// decode the verifiable presentation (only copy of it)
 	credentials, err := vp.DecodeEnvelopedCredentials()
 	if err != nil {

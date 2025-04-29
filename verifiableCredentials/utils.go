@@ -89,89 +89,56 @@ func VerifyCertChain(url string) (*x509.Certificate, error) {
 }
 
 func VCFromJWT(token []byte) (*VerifiableCredential, error) {
-	dids, err := VerifyJWS(token)
+	didweb, header, payload, err := VerifyJWS(token)
 	if err != nil {
 		return nil, err
 	}
-	var signaturesErr error
 
-	for didweb, header := range dids {
-		key, k := didweb.Keys[header.KID]
-		if !k {
-			signaturesErr = errors.Join(signaturesErr, fmt.Errorf("key %v not in did web %v", header.KID, header.Issuer))
-			continue
-		}
+	vc := &VerifiableCredential{}
 
-		payload, err := jws.Verify(token, jws.WithKey(header.Algorithm, key.JWK))
-		if err != nil {
-			signaturesErr = errors.Join(signaturesErr, err)
-			continue
-		}
-
-		vc := &VerifiableCredential{}
-
-		err = json.Unmarshal(payload, vc)
-		if err != nil {
-			signaturesErr = errors.Join(signaturesErr, err)
-			continue
-		}
-		vc.signature = &JWSSignature{
-			OriginalJWT: token,
-			DID:         didweb,
-			JWTHeader:   header,
-		}
-		return vc, nil
+	err = json.Unmarshal(payload, vc)
+	if err != nil {
+		return nil, err
 	}
-	return nil, signaturesErr
+	vc.signature = &JWSSignature{
+		OriginalJWT: token,
+		DID:         didweb,
+		JWTHeader:   header,
+	}
+	return vc, nil
+
 }
 
 func VPFROMJWT(token []byte) (*VerifiablePresentation, error) {
-	dids, err := VerifyJWS(token)
+	didweb, header, payload, err := VerifyJWS(token)
 	if err != nil {
 		return nil, err
 	}
-	var signaturesErr error
 
-	for didweb, header := range dids {
-		key, k := didweb.Keys[header.KID]
-		if !k {
-			signaturesErr = errors.Join(signaturesErr, fmt.Errorf("key %v not in did web %v", header.KID, header.Issuer))
-			continue
-		}
+	vp := &VerifiablePresentation{}
 
-		payload, err := jws.Verify(token, jws.WithKey(header.Algorithm, key.JWK))
-		if err != nil {
-			signaturesErr = errors.Join(signaturesErr, err)
-			continue
-		}
-
-		vp := &VerifiablePresentation{}
-
-		err = json.Unmarshal(payload, vp)
-		if err != nil {
-			signaturesErr = errors.Join(signaturesErr, err)
-			continue
-		}
-		vp.signature = &JWSSignature{
-			OriginalJWT: token,
-			DID:         didweb,
-			JWTHeader:   header,
-		}
-		return vp, nil
+	err = json.Unmarshal(payload, vp)
+	if err != nil {
+		return nil, err
 	}
-	return nil, signaturesErr
+
+	vp.signature = &JWSSignature{
+		OriginalJWT: token,
+		DID:         didweb,
+		JWTHeader:   header,
+	}
+	return vp, nil
+
 }
 
-func VerifyJWS(token []byte) (map[*did.DID]*JWTHeader, error) {
+func VerifyJWS(token []byte) (*did.DID, *JWTHeader, []byte, error) {
 	parse, err := jws.Parse(token)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	signatures := parse.Signatures()
 
 	var resolveSigErr error
-
-	dids := map[*did.DID]*JWTHeader{}
 
 	for _, signature := range signatures {
 		marshalJSON, err := signature.ProtectedHeaders().MarshalJSON()
@@ -181,7 +148,6 @@ func VerifyJWS(token []byte) (map[*did.DID]*JWTHeader, error) {
 		}
 
 		header := &JWTHeader{}
-
 		err = json.Unmarshal(marshalJSON, header)
 		if err != nil {
 			resolveSigErr = errors.Join(resolveSigErr, err)
@@ -199,13 +165,22 @@ func VerifyJWS(token []byte) (map[*did.DID]*JWTHeader, error) {
 			resolveSigErr = errors.Join(resolveSigErr, err)
 			continue
 		}
-		dids[didweb] = header
+		key, k := didweb.Keys[header.KID]
+		if !k {
+			resolveSigErr = errors.Join(resolveSigErr, fmt.Errorf("key %v not in did web %v", header.KID, header.Issuer))
+			continue
+		}
+
+		payload, err := jws.Verify(token, jws.WithKey(header.Algorithm, key.JWK))
+		if err != nil {
+			resolveSigErr = errors.Join(resolveSigErr, err)
+			continue
+		}
+		return didweb, header, payload, nil
 	}
 
-	if len(dids) == 0 {
-		return nil, resolveSigErr
-	}
-	return dids, nil
+	return nil, nil, nil, resolveSigErr
+
 }
 
 func JWTFromID(id string) ([]byte, error) {

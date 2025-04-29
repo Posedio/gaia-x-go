@@ -9,8 +9,10 @@ package did
 import (
 	"encoding/json"
 	"errors"
+	"github.com/dgraph-io/ristretto/v2"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"strings"
+	"time"
 )
 
 /*
@@ -18,6 +20,21 @@ DID Document properties as defined in https://www.w3.org/TR/did-core/#did-docume
 */
 
 var UniResolverURL = "https://resolver.lab.gaia-x.eu/1.0/identifiers/"
+
+var cache *ristretto.Cache[string, *DID]
+
+func init() {
+	var err error
+	cache, err = ristretto.NewCache(&ristretto.Config[string, *DID]{
+		NumCounters: 2e3, // number of keys to track.
+		MaxCost:     200, // maximum cost of cache.
+		BufferItems: 64,  // number of keys per Get buffer.
+	})
+	if err != nil {
+		panic(err)
+	}
+
+}
 
 type DID struct {
 	Id                   string               `json:"id"`                             //A string that conforms to the rules in 3.1 DID Syntax.
@@ -43,6 +60,16 @@ func NewDID(id string) *DID {
 }
 
 func (did *DID) ResolveMethods() error {
+	if did.Keys != nil {
+		d, k := cache.Get(did.Id)
+		if k {
+			if d.Keys != nil {
+				did.Keys = d.Keys
+				return nil
+			}
+		}
+	}
+
 	did.Keys = make(map[string]*Key)
 	for _, vm := range did.VerificationMethod {
 		if vm.PublicKeyJwk != nil {
@@ -81,6 +108,8 @@ func (did *DID) ResolveMethods() error {
 	if err != nil {
 		return err
 	}
+
+	cache.SetWithTTL(did.Id, did, 2, time.Minute)
 
 	return nil
 }

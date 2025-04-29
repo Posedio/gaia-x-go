@@ -30,7 +30,6 @@ var httpclient = &http.Client{
 
 func request(path *url.URL) (*DID, error) {
 	did := &DID{}
-
 	req, err := http.NewRequest("GET", path.String(), nil)
 	if err != nil {
 		return nil, err
@@ -86,6 +85,10 @@ func request(path *url.URL) (*DID, error) {
 ResolveDIDWeb resolves the given DID:WEB to a struct DID
 */
 func ResolveDIDWeb(didweb string) (*DID, error) {
+	did, k := cache.Get(didweb)
+	if k {
+		return did, nil
+	}
 
 	var fragment string
 
@@ -140,6 +143,8 @@ func ResolveDIDWeb(didweb string) (*DID, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	cache.SetWithTTL(didweb, d, 1, time.Minute)
 
 	return d, nil
 

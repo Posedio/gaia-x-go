@@ -239,47 +239,141 @@ func (vp *VerifiablePresentation) Expand() ([][]byte, error) {
 }
 
 func (vp *VerifiablePresentation) AddSignature(originalJWS []byte) error {
-	dids, err := VerifyJWS(originalJWS)
+	didweb, header, payload, err := VerifyJWS(originalJWS)
 	if err != nil {
 		return err
 	}
-	var signaturesErr error
+	vc := &VerifiableCredential{}
 
-	for didweb, header := range dids {
-		key, k := didweb.Keys[header.KID]
-		if !k {
-			signaturesErr = errors.Join(signaturesErr, fmt.Errorf("key %v not in did web %v", header.KID, header.Issuer))
-			continue
-		}
-
-		payload, err := jws.Verify(originalJWS, jws.WithKey(header.Algorithm, key.JWK))
-		if err != nil {
-			signaturesErr = errors.Join(signaturesErr, err)
-			continue
-		}
-
-		vc := &VerifiableCredential{}
-
-		err = json.Unmarshal(payload, vc)
-		if err != nil {
-			signaturesErr = errors.Join(signaturesErr, err)
-			continue
-		}
-		vp.signature = &JWSSignature{
-			OriginalJWT: originalJWS,
-			DID:         didweb,
-			JWTHeader:   header,
-		}
-
-		return nil
+	err = json.Unmarshal(payload, vc)
+	if err != nil {
+		return err
 	}
-	return signaturesErr
+	vp.signature = &JWSSignature{
+		OriginalJWT: originalJWS,
+		DID:         didweb,
+		JWTHeader:   header,
+	}
+
+	return nil
+
 }
 
 func (vp *VerifiablePresentation) GetOriginalJWS() []byte {
 	if vp.signature != nil {
 		return vp.signature.OriginalJWT
 	}
+	return nil
+}
+
+func (vp *VerifiablePresentation) Verify(options ...*VerifyOption) error {
+	if vp.signature == nil {
+		return fmt.Errorf("verifiableCredential is missing signature")
+	}
+	vO := &verifyOptions{}
+
+	if options != nil {
+		for _, o := range options {
+			if o != nil {
+				err := o.apply(vO)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	//make sure did is still valid
+	web, err := did.ResolveDIDWeb(vp.signature.DID.Id)
+	if err != nil {
+		return err
+	}
+	err = web.ResolveMethods()
+	if err != nil {
+		return err
+	}
+	vp.signature.DID = web
+
+	key, k := vp.signature.DID.Keys[vp.signature.JWTHeader.KID]
+	if !k {
+		return errors.New("the KID from the JWT header does not match any key from the issuer DID")
+	}
+
+	cert, err := VerifyCertChain(key.JWK.X509URL())
+	if err != nil {
+		return err
+	}
+
+	host, err := vp.signature.DID.GetHost()
+	if err != nil {
+		return err
+	}
+	if !slices.Contains(cert.DNSNames, host) {
+		return fmt.Errorf("host %v not in the list of allowed DNS Names %v of the provided DID x509 certificate", host, cert.DNSNames)
+	}
+
+	_, err = jws.Verify(vp.signature.OriginalJWT, jws.WithKey(vp.signature.JWTHeader.Algorithm, key.JWK))
+	if err != nil {
+		return fmt.Errorf("verifiablePresentation signature is invalid: %w", err)
+	}
+
+	if !(vp.signature.JWTHeader.TYP == JWTType || vp.signature.JWTHeader.TYP == "vp+jwt") {
+		return fmt.Errorf("verifiablePresentation signature header does not have the correct type of JWT")
+	}
+
+	if !(vp.signature.JWTHeader.CTY == JWTCTY || vp.signature.JWTHeader.CTY == "vp") {
+		return fmt.Errorf("verifiablePresentation signature header does not have the correct cty")
+	}
+
+	now := time.Now()
+
+	if now.UnixMilli() < vp.signature.JWTHeader.IAT.UnixMilli() && vp.signature.JWTHeader.EXP.UnixMilli() > 0 {
+		return fmt.Errorf("verifiablePresentation issuance date is in the future")
+	}
+	if now.UnixMilli() > vp.signature.JWTHeader.EXP.UnixMilli() && vp.signature.JWTHeader.EXP.UnixMilli() > 0 {
+		return fmt.Errorf("verifiablePresentation not valid anymore")
+	}
+
+	if !vp.ValidUntil.IsZero() {
+		if !vp.ValidUntil.After(now) {
+			return fmt.Errorf("verifiablePresentation is expired")
+		}
+	}
+
+	if !vp.ValidFrom.IsZero() {
+		if vp.ValidFrom.After(now) {
+			return fmt.Errorf("verifiablePresentation is not valid yet")
+		}
+	}
+
+	if vO.issuerMatch {
+		if vp.Issuer != vp.signature.JWTHeader.Issuer {
+			log.Println(vp.Issuer, vp.signature.JWTHeader.Issuer)
+			log.Printf("verifiablePresentation is not valid %v %v", vp.Issuer, vp.signature.JWTHeader.Issuer)
+			return fmt.Errorf("verifialePresentation issuer does not match JTW issuer")
+		}
+	}
+
+	if vO.isTrustedIssuer {
+		get, err := http.Get(vO.trustedIssuerUrl)
+		if err != nil {
+			return err
+		}
+		defer func(Body io.ReadCloser) {
+			_ = Body.Close()
+		}(get.Body)
+		all, err := io.ReadAll(get.Body)
+		if err != nil {
+			return err
+		}
+		if get.StatusCode != 200 {
+			return fmt.Errorf("unexpected status code from trustedIssuerUrl server: %v", string(all))
+		}
+		if !(strings.Contains(string(all), host)) {
+			return errors.New("is not a trusted gx issuer")
+		}
+	}
+
 	return nil
 }
 
@@ -501,41 +595,25 @@ func (c *VerifiableCredential) GetOriginalJWS() []byte {
 }
 
 func (c *VerifiableCredential) AddSignature(originalJWS []byte) error {
-	dids, err := VerifyJWS(originalJWS)
+	didweb, header, payload, err := VerifyJWS(originalJWS)
 	if err != nil {
 		return err
 	}
-	var signaturesErr error
 
-	for didweb, header := range dids {
-		key, k := didweb.Keys[header.KID]
-		if !k {
-			signaturesErr = errors.Join(signaturesErr, fmt.Errorf("key %v not in did web %v", header.KID, header.Issuer))
-			continue
-		}
+	vc := &VerifiableCredential{}
 
-		payload, err := jws.Verify(originalJWS, jws.WithKey(header.Algorithm, key.JWK))
-		if err != nil {
-			signaturesErr = errors.Join(signaturesErr, err)
-			continue
-		}
-
-		vc := &VerifiableCredential{}
-
-		err = json.Unmarshal(payload, vc)
-		if err != nil {
-			signaturesErr = errors.Join(signaturesErr, err)
-			continue
-		}
-		c.signature = &JWSSignature{
-			OriginalJWT: originalJWS,
-			DID:         didweb,
-			JWTHeader:   header,
-		}
-
-		return nil
+	err = json.Unmarshal(payload, vc)
+	if err != nil {
+		return err
 	}
-	return signaturesErr
+	c.signature = &JWSSignature{
+		OriginalJWT: originalJWS,
+		DID:         didweb,
+		JWTHeader:   header,
+	}
+
+	return nil
+
 }
 
 func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
@@ -571,6 +649,7 @@ func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
 		if !k {
 			return errors.New("the KID from the JWT header does not match any key from the issuer DID")
 		}
+
 		cert, err := VerifyCertChain(key.JWK.X509URL())
 		if err != nil {
 			return err
