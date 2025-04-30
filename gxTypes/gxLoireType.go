@@ -1286,12 +1286,12 @@ type DataResource struct {
 	VirtualResource
 	// Designates the producer of a concept
 	ProducedBy LegalPerson `json:"gx:producedBy"`
-	// A resolvable link to the data exchange component that exposes the Data Product
-	ExposedThrough []string `json:"gx:exposedThrough"`
+	// required: A resolvable link to the data exchange component that exposes the Data Product
+	ExposedThrough any `json:"gx:exposedThrough"` // todo gx:DataExchangeComponent
 	// Date time in ISO 8601 format after which data is obsolete and shall be deleted
-	ObsoleteDateTime time.Time `json:"gx:obsoleteDateTime,omitempty"`
+	ObsoleteDateTime any `json:"gx:obsoleteDateTime,omitzero"` //todo change type similar to xsd:string not with xsd:dateTime
 	// Date time in ISO 8601 format after which data is expired and shall be deleted
-	ExpirationDateTime time.Time `json:"gx:expirationDateTime,omitempty"`
+	ExpirationDateTime any `json:"gx:expirationDateTime,omitzero"` //todo change type similar to xsd:string not with xsd:dateTime
 	// Boolean for Personal Identifier Information
 	ContainsPII bool `json:"gx:containsPII"`
 	// Data controller Participant as defined in GDPR
