@@ -325,7 +325,7 @@ func NewComplianceConnector(signUrl ServiceUrl, notaryUrl NotaryURL, version str
 
 type LegalRegistrationNumberOptions struct {
 	Id                 string                 `json:"id" validate:"required,uri"`
-	RegistrationNumber string                 `json:"registrationNumber" validate:"required,alphanumunicode"`
+	RegistrationNumber string                 `json:"registrationNumber" validate:"required"`
 	Type               RegistrationNumberType `json:"type" validate:"required,validateRegistrationNumberType"`
 }
 

@@ -350,7 +350,7 @@ func (vp *VerifiablePresentation) Verify(options ...*VerifyOption) error {
 		if vp.Issuer != vp.signature.JWTHeader.Issuer {
 			log.Println(vp.Issuer, vp.signature.JWTHeader.Issuer)
 			log.Printf("verifiablePresentation is not valid %v %v", vp.Issuer, vp.signature.JWTHeader.Issuer)
-			return fmt.Errorf("verifialePresentation issuer does not match JTW issuer")
+			return fmt.Errorf("verifialePresentation issuer does not match JWT issuer")
 		}
 	}
 
@@ -699,7 +699,7 @@ func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
 
 		if vO.issuerMatch {
 			if c.Issuer != c.signature.JWTHeader.Issuer {
-				return fmt.Errorf("credential issuer does not match JTW issuer")
+				return fmt.Errorf("credential issuer does not match JWT issuer")
 			}
 		}
 

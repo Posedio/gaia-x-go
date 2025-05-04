@@ -613,7 +613,7 @@ type ServiceOffering struct {
 	// Keywords that describe / tag the service
 	Keyword []string `json:"gx:keyword,omitempty"`
 	// Provision type of the service
-	ProvisionType string `json:"gx:provisionType,omitempty"`
+	ProvisionType any `json:"gx:provisionType,omitempty"`
 	// Endpoint through which the Service Offering can be accessed
 	Endpoint *Endpoint `json:"gx:endpoint,omitempty"`
 	// List of Resource references where service is hosted
@@ -1622,35 +1622,25 @@ type ConstraintOperators struct {
 	IsNoneOf string `json:"odrl:isNoneOf,omitempty"`
 }
 
+type DataLicense struct {
+	// A list of URIs to license documents
+	Licenses []string `json:"gx:licenses,omitempty"`
+	//required: A resolvable link to the Terms and Conditions applying to that service
+	TermsAndConditions string `json:"gx:termsAndConditions,omitempty"`
+}
+
+type DataProductDescription struct {
+	GaiaXEntity
+	DataLicense DataLicense `json:"gx:dataLicense"`
+}
+
 // DataProduct represents a Gaia-X data product
 type DataProduct struct {
 	ServiceOffering
-	// A resolvable link to the Data Producer Declaration
-	ProvidedBy DataProducer `json:"gx:providedBy"`
-	// A resolvable link to the Terms and Conditions applying to that service
-	TermsAndConditions string `json:"gx:termsAndConditions"`
-	// A list of URIs to license documents
-	Licenses []string `json:"dct:licenses"`
-	// Title of a concept
-	Title string `json:"dct:title"`
-	// Publication date in ISO 8601 format
-	Issued string `json:"dct:issued,omitempty"`
-	// Date and time at which a concept becomes obsolete
-	ObsoleteDateTime time.Time `json:"gx:obsoleteDateTime,omitempty"`
-	// A list of policy expressed using ODRL
-	HasPolicy string `json:"odrl:hasPolicy,omitempty"`
-	// A list of Licensors
-	DataLicensors []DataLicensor `json:"gx:dataLicensors,omitempty"`
-	// List of authorizations from the data subjects as Natural Person when the dataset contains PII
-	DataUsageAgreements []DataUsageAgreement `json:"gx:dataUsageAgreements,omitempty"`
-	// DataSet Content
-	AggregationOf []DataSet `json:"gx:aggregationOf"`
-	// Unique UUID4
-	Identifier string `json:"dct:identifier"`
-	// Contact to get more information
-	ContactPoint string `json:"dcat:contactPoint,omitempty"`
-	// An established standard to which the described resource conforms
-	ConformsTo string `json:"dct:conformsTo,omitempty"`
+	// required: A resolvable link to the Data Producer Declaration
+	ProvidedBy LegalPerson `json:"gx:providedBy"`
+	// required: The link to a Data Product Description
+	DescribedBy DataProductDescription `json:"gx:describedBy"`
 }
 
 // SignatureCheckType defines signature requirements
