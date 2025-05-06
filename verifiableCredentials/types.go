@@ -182,6 +182,105 @@ func (vp *VerifiablePresentation) DecodeEnvelopedCredentials() ([]*VerifiableCre
 	return vp.decodedCredentials, nil
 }
 
+func (vp *VerifiablePresentation) DecodeCredentialsToResolvedCSMap() (map[string]map[string]interface{}, error) {
+	csMap := make(map[string]map[string]interface{})
+
+	if vp.decodedCredentials == nil {
+		_, err := vp.DecodeEnvelopedCredentials()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, v := range vp.decodedCredentials {
+		for _, cs := range v.CredentialSubject.CredentialSubject {
+			var id string
+			var ok bool
+			if idi, k := cs["id"]; k {
+				id, ok = idi.(string)
+				if !ok {
+					return nil, fmt.Errorf("invalid credential subject id at index: %v", v.ID)
+				}
+			} else if idi, k := cs["@id"]; k {
+				id, ok = idi.(string)
+				if !ok {
+					return nil, fmt.Errorf("invalid credential subject id at index: %v", v.ID)
+				}
+			} else {
+				id = ""
+			}
+			if id != "" {
+				if _, k := cs["type"]; !k {
+					for _, ty := range v.Type.Types {
+						if ty != "VerifiableCredential" {
+							cs["type"] = ty
+							break
+						}
+					}
+				}
+				csMap[id] = cs
+			}
+		}
+	}
+
+	for i, cs := range csMap {
+		k := Resolve(cs, csMap)
+		if m, ok := k.(map[string]interface{}); ok {
+			csMap[i] = m
+		}
+	}
+	return csMap, nil
+}
+
+func Resolve(in any, csMap map[string]map[string]interface{}) any {
+	switch t := in.(type) {
+	case map[string]interface{}:
+		if len(t) == 1 {
+			var i any
+			var ok bool
+			if i, ok = t["@id"]; !ok {
+				if i, ok = t["id"]; !ok {
+					return t
+				}
+			}
+			if is, ok := i.(string); ok {
+				return csMap[is]
+			}
+		} else if len(t) == 2 {
+			var i any
+			var ok bool
+			if i, ok = t["@id"]; !ok {
+				if i, ok = t["id"]; !ok {
+					return t
+				}
+			}
+			if is, ok := i.(string); ok {
+				var ty any
+				if ty, ok = t["@type"]; !ok {
+					if ty, ok = t["type"]; !ok {
+						return t
+					}
+				}
+				if ty != "" {
+					return csMap[is]
+				} else {
+					return t
+				}
+			}
+		} else {
+			for id, ele := range t {
+				t[id] = Resolve(ele, csMap)
+			}
+			return t
+		}
+	case []any:
+		for _, ele := range t {
+			return Resolve(ele, csMap)
+		}
+	}
+	return in
+}
+
 func (vp *VerifiablePresentation) setupJsonLdProcessor() {
 	vp.proc = ld.NewJsonLdProcessor()
 
@@ -1276,7 +1375,8 @@ func GenerateHash(b []byte) []byte {
 }
 
 type CredentialSubjectShape struct {
-	ID string `json:"@id,omitempty"`
-	// option to provide Types
-	Type string `json:"@type,omitempty,omitzero"`
+	ID     string `json:"id,omitempty"`
+	Type   string `json:"type,omitempty,omitempty"`
+	AtType string `json:"@type,omitempty,omitempty"`
+	AtID   string `json:"@id,omitempty"`
 }

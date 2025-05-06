@@ -599,7 +599,7 @@ type ServiceOffering struct {
 	// A resolvable link of resources related to an entity and that can exist independently of it
 	AggregationOfResources []ResourceInterface `json:"gx:aggregationOfResources,omitempty"`
 	// A resolvable link to Gaia-X Credential of the participant providing the service
-	ProvidedBy LegalPerson `json:"gx:providedBy"`
+	ProvidedBy LegalPerson `json:"gx:providedBy,omitempty"`
 	// List of service offerings this service depends on
 	DependsOn []ServiceOffering `json:"gx:dependsOn,omitempty"`
 	// One or more Terms and Conditions applying to that service
