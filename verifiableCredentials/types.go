@@ -251,6 +251,9 @@ func Resolve(in any, csMap map[string]map[string]interface{}) any {
 			var ok bool
 			if i, ok = t["@id"]; !ok {
 				if i, ok = t["id"]; !ok {
+					for id, ele := range t {
+						t[id] = Resolve(ele, csMap)
+					}
 					return t
 				}
 			}
@@ -274,9 +277,10 @@ func Resolve(in any, csMap map[string]map[string]interface{}) any {
 			return t
 		}
 	case []any:
-		for _, ele := range t {
-			return Resolve(ele, csMap)
+		for i, ele := range t {
+			t[i] = Resolve(ele, csMap)
 		}
+		return t
 	}
 	return in
 }
