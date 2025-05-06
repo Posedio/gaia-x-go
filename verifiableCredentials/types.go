@@ -192,7 +192,7 @@ func (vp *VerifiablePresentation) DecodeCredentialsToResolvedCSMap() (map[string
 		}
 	}
 
-	for _, v := range vp.decodedCredentials {
+	for i, v := range vp.decodedCredentials {
 		for _, cs := range v.CredentialSubject.CredentialSubject {
 			var id string
 			var ok bool
@@ -207,7 +207,10 @@ func (vp *VerifiablePresentation) DecodeCredentialsToResolvedCSMap() (map[string
 					return nil, fmt.Errorf("invalid credential subject id at index: %v", v.ID)
 				}
 			} else {
-				id = ""
+				id = "" //todo this is a privacy preserving vs how to handle?
+				if v.ID != "" {
+					id = v.ID + "#" + string(rune(i))
+				}
 			}
 			if id != "" {
 				if _, k := cs["type"]; !k {
@@ -230,6 +233,96 @@ func (vp *VerifiablePresentation) DecodeCredentialsToResolvedCSMap() (map[string
 		}
 	}
 	return csMap, nil
+}
+
+type vcMap struct {
+	vc    *VerifiableCredential
+	csIDs []string
+}
+
+func (vp *VerifiablePresentation) DecodeCredentialsAndResolveAllReferences() ([]*VerifiableCredential, error) {
+	csMap := make(map[string]map[string]interface{})
+
+	if vp.decodedCredentials == nil {
+		_, err := vp.DecodeEnvelopedCredentials()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	vcm := make(map[string]vcMap, len(vp.VerifiableCredential))
+
+	for i, v := range vp.decodedCredentials {
+		for _, cs := range v.CredentialSubject.CredentialSubject {
+			var id string
+			var ok bool
+			if idi, k := cs["id"]; k {
+				id, ok = idi.(string)
+				if !ok {
+					return nil, fmt.Errorf("invalid credential subject id at index: %v", v.ID)
+				}
+			} else if idi, k := cs["@id"]; k {
+				id, ok = idi.(string)
+				if !ok {
+					return nil, fmt.Errorf("invalid credential subject id at index: %v", v.ID)
+				}
+			} else {
+				id = "" //todo this is a privacy preserving vs how to handle?
+				if v.ID != "" {
+					id = v.ID + "#" + string(rune(i))
+				}
+			}
+			if id != "" {
+				if _, k := cs["type"]; !k {
+					for _, ty := range v.Type.Types {
+						if ty != "VerifiableCredential" {
+							if ele, k := cs["type"]; k {
+								switch e := ele.(type) {
+								case string:
+									n := []any{e, id}
+									cs["type"] = n
+								case []any:
+									e = append(e, id)
+									cs["type"] = e
+								}
+							} else {
+								cs["type"] = ty
+							}
+						}
+					}
+				}
+				csMap[id] = cs
+				if ele, ok := vcm[v.ID]; ok {
+					ele.csIDs = append(ele.csIDs, id)
+					vcm[v.ID] = ele
+				} else {
+					vcm[v.ID] = vcMap{
+						vc:    v,
+						csIDs: []string{id},
+					}
+				}
+
+			}
+		}
+	}
+
+	for i, cs := range csMap {
+		k := Resolve(cs, csMap)
+		if m, ok := k.(map[string]interface{}); ok {
+			csMap[i] = m
+		}
+	}
+	var reVC []*VerifiableCredential
+	for _, m := range vcm {
+		if m.vc != nil {
+			m.vc.CredentialSubject.CredentialSubject = []map[string]interface{}{}
+			for _, id := range m.csIDs {
+				m.vc.CredentialSubject.CredentialSubject = append(m.vc.CredentialSubject.CredentialSubject, csMap[id])
+				reVC = append(reVC, m.vc)
+			}
+		}
+	}
+	return reVC, nil
 }
 
 func Resolve(in any, csMap map[string]map[string]interface{}) any {
