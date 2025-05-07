@@ -252,29 +252,45 @@ func (vp *VerifiablePresentation) DecodeCredentialsAndResolveAllReferences() ([]
 
 	vcm := make(map[string]vcMap, len(vp.VerifiableCredential))
 
-	for i, v := range vp.decodedCredentials {
-		for _, cs := range v.CredentialSubject.CredentialSubject {
+	for _, v := range vp.decodedCredentials {
+		jv, err := json.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		vc := &VerifiableCredential{}
+		err = json.Unmarshal(jv, &vc)
+		if err != nil {
+			return nil, err
+		}
+		vcm[vc.ID] = vcMap{
+			vc:    vc,
+			csIDs: []string{},
+		}
+	}
+
+	for _, v := range vcm {
+		for _, cs := range v.vc.CredentialSubject.CredentialSubject {
 			var id string
 			var ok bool
 			if idi, k := cs["id"]; k {
 				id, ok = idi.(string)
 				if !ok {
-					return nil, fmt.Errorf("invalid credential subject id at index: %v", v.ID)
+					return nil, fmt.Errorf("invalid credential subject id at index: %v", v.vc.ID)
 				}
 			} else if idi, k := cs["@id"]; k {
 				id, ok = idi.(string)
 				if !ok {
-					return nil, fmt.Errorf("invalid credential subject id at index: %v", v.ID)
+					return nil, fmt.Errorf("invalid credential subject id at index: %v", v.vc.ID)
 				}
 			} else {
 				id = "" //todo this is a privacy preserving vs how to handle?
-				if v.ID != "" {
-					id = v.ID + "#" + string(rune(i))
+				if v.vc.ID != "" {
+					id = v.vc.ID + "#privacy"
 				}
 			}
 			if id != "" {
 				if _, k := cs["type"]; !k {
-					for _, ty := range v.Type.Types {
+					for _, ty := range v.vc.Type.Types {
 						if ty != "VerifiableCredential" {
 							if ele, k := cs["type"]; k {
 								switch e := ele.(type) {
@@ -292,14 +308,9 @@ func (vp *VerifiablePresentation) DecodeCredentialsAndResolveAllReferences() ([]
 					}
 				}
 				csMap[id] = cs
-				if ele, ok := vcm[v.ID]; ok {
+				if ele, ok := vcm[v.vc.ID]; ok {
 					ele.csIDs = append(ele.csIDs, id)
-					vcm[v.ID] = ele
-				} else {
-					vcm[v.ID] = vcMap{
-						vc:    v,
-						csIDs: []string{id},
-					}
+					vcm[v.vc.ID] = ele
 				}
 
 			}
