@@ -478,7 +478,7 @@ func (vp *VerifiablePresentation) GetOriginalJWS() []byte {
 
 func (vp *VerifiablePresentation) Verify(options ...*VerifyOption) error {
 	if vp.signature == nil {
-		return fmt.Errorf("verifiableCredential is missing signature")
+		return fmt.Errorf("verifiablePresentation is missing signature")
 	}
 	vO := &verifyOptions{}
 
