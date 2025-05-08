@@ -169,6 +169,9 @@ func (vp *VerifiablePresentation) DecodeEnvelopedCredentials() ([]*VerifiableCre
 				return nil, err
 			}
 			v, err = VCFromJWT(jwt)
+			if err != nil {
+				return nil, err
+			}
 		} else if slices.Contains(vc.Type.Types, "VerifiableCredential") { //todo untested
 			v = vc
 		} else {
