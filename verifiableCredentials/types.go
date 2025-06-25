@@ -869,6 +869,7 @@ func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
 		if err != nil {
 			return err
 		}
+
 		if !slices.Contains(cert.DNSNames, host) {
 			return fmt.Errorf("host %v not in the list of allowed DNS Names %v of the provided DID x509 certificate", host, cert.DNSNames)
 		}
@@ -888,10 +889,10 @@ func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
 
 		now := time.Now()
 
-		if now.UnixMilli() < c.signature.JWTHeader.IAT.UnixMilli() && c.signature.JWTHeader.EXP.UnixMilli() > 0 {
-			return fmt.Errorf("verifiableCredential issuance date is in the future")
+		if now.Unix() < c.signature.JWTHeader.IAT.Unix() && c.signature.JWTHeader.EXP.Unix() > 0 {
+			return fmt.Errorf("verifiableCredential issuance date is in the future %v %v", now.Format(time.RFC3339Nano), c.signature.JWTHeader.IAT.Format(time.RFC3339Nano))
 		}
-		if now.UnixMilli() > c.signature.JWTHeader.EXP.UnixMilli() && c.signature.JWTHeader.EXP.UnixMilli() > 0 {
+		if now.Unix() > c.signature.JWTHeader.EXP.Unix() && c.signature.JWTHeader.EXP.Unix() > 0 {
 			return fmt.Errorf("verifiableCredential not valid anymore")
 		}
 

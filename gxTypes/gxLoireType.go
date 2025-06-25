@@ -757,8 +757,9 @@ type Endpoint struct {
 
 // StandardConformity provides information about applied standards
 type StandardConformity struct {
+	vc.CredentialSubjectShape
 	// Name of the standard
-	Title string `json:"dct:title"`
+	Title string `json:"dcterms:title"`
 	// Provides a link to schemas or details about applied standards
 	StandardReference vc.URL `json:"gx:standardReference"`
 	// Publisher of the standard

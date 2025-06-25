@@ -456,7 +456,7 @@ func (c *TagusCompliance) SelfSignSignTermsAndConditions(id string) (*vcTypes.Ve
 }
 
 func (c *TagusCompliance) SignServiceOffering(options ServiceOfferingComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	return c.SignServiceOfferingWithContext(ctx, options)
 }
@@ -498,6 +498,8 @@ func (c *TagusCompliance) SignServiceOfferingWithContext(ctx context.Context, op
 	if err != nil {
 		return nil, nil, err
 	}
+
+	log.Println(string(vpJ))
 
 	req.Header.Set("Content-Type", "application/json")
 
