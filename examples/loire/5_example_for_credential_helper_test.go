@@ -14,6 +14,7 @@ import (
 	"time"
 )
 
+// needs rework since the credential helper in the newest version has no field for custom endpoints
 func TestCredentialHelperSignerServer(t *testing.T) {
 	t.Log("Starting server")
 	err := os.Setenv("TestSignPrivateKeyFilePath", "../../key.pem")

@@ -8,6 +8,7 @@ package loire
 import (
 	"github.com/Posedio/gaia-x-go/compliance"
 	"github.com/Posedio/gaia-x-go/verifiableCredentials"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 	"testing"
 )
 
@@ -15,7 +16,18 @@ func TestCompliantParticipant(t *testing.T) {
 	// to retrieve a compliant participant credential, as described before a digital identity in this case a DID is needed
 
 	// to establish a client we follow the steps we had already done
-	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, compliance.TSystemV1Notary, "tagus", key, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
+	connector, err := compliance.NewComplianceConnectorV2(
+		compliance.Endpoints{
+			Compliance: compliance.V1Staging,
+			Notary:     compliance.DeltaDaoV1Notary},
+		"tagus",
+		&compliance.IssuerSetting{
+			Key:                key,
+			Alg:                jwa.PS256,
+			Issuer:             "did:web:did.dumss.me",
+			VerificationMethod: "did:web:did.dumss.me#v1-2025",
+		},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}

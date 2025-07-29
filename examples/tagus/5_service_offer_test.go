@@ -8,6 +8,7 @@ package loire
 import (
 	"github.com/Posedio/gaia-x-go/compliance"
 	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 	"testing"
 )
 
@@ -15,16 +16,28 @@ func TestCompliantServiceOffering(t *testing.T) {
 	// to retrieve a compliant participant credential, as described before a digital identity in this case a DID is needed
 
 	// to establish a client we follow the steps we had already done
-	connector, err := compliance.NewComplianceConnector(compliance.V1Staging, compliance.ArubaV1Notary, "tagus", key, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
+
+	connector, err := compliance.NewComplianceConnectorV2(
+		compliance.Endpoints{
+			Compliance: compliance.V1Staging,
+			Notary:     compliance.DeltaDaoV1Notary},
+		"tagus",
+		&compliance.IssuerSetting{
+			Key:                key,
+			Alg:                jwa.PS256,
+			Issuer:             "did:web:did.dumss.me",
+			VerificationMethod: "did:web:did.dumss.me#v1-2025",
+		},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// options a built as before, see 2 first gaia-x verifiable credential
 	lrnOptions := compliance.LegalRegistrationNumberOptions{
-		Id:                 "http://lrn.test", // Id for the VerifiableCredential that it can be unique identified
-		RegistrationNumber: "FR79537407926",   // Legal Registration Number in this case the on of the GAIA-X AISBL
-		Type:               compliance.VatID,  // Type of the Legal Registration NUmber see List above
+		Id:                 "http://lrn.test",      // Id for the VerifiableCredential that it can be unique identified
+		RegistrationNumber: "98450045E09C7F5A0703", // Legal Registration Number in this case the on of the GAIA-X AISBL
+		Type:               compliance.LeiCode,     // Type of the Legal Registration NUmber see List above
 	}
 
 	// retrieve the Legal Registration Number VC with the provided options

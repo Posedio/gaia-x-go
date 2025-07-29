@@ -8,6 +8,7 @@ package loire
 
 import (
 	"github.com/Posedio/gaia-x-go/compliance"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -22,7 +23,16 @@ func TestSignTermsAndConditions(t *testing.T) {
 	// as described above a private key with a public key that is signed by a qualified trust anchor is needed
 	// as issuer a did as shown in 1_did is shown has to be provided
 	// since a did can have multiple verification methods one that is used have to be specified, obviously this has to be the qualified public key to the set private key.
-	connector, err := compliance.NewComplianceConnector("", "", "loire", key, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
+	connector, err := compliance.NewComplianceConnectorV2(
+		compliance.Endpoints{Notary: compliance.DeltaDaoV2Notary},
+		"loire",
+		&compliance.IssuerSetting{
+			Key:                key,
+			Alg:                jwa.PS256,
+			Issuer:             "did:web:did.dumss.me",
+			VerificationMethod: "did:web:did.dumss.me#v1-2025",
+		})
+
 	if err != nil {
 		t.Fatal(err)
 	}

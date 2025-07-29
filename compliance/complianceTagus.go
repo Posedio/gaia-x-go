@@ -28,15 +28,13 @@ import (
 )
 
 type TagusCompliance struct {
-	signUrl            ServiceUrl
-	version            string
-	issuer             string
-	verificationMethod string
-	key                jwk.Key
-	client             *http.Client
-	did                *did.DID
-	notaryURL          NotaryURL
-	validate           *validator.Validate
+	signUrl   ServiceUrl
+	version   string
+	issuer    *IssuerSetting
+	client    *http.Client
+	did       *did.DID
+	notaryURL NotaryURL
+	validate  *validator.Validate
 }
 
 // SelfSign adds a crypto proof to the self-description
@@ -57,7 +55,7 @@ func (c *TagusCompliance) SelfSign(vc *vcTypes.VerifiableCredential) error {
 		return err
 	}
 
-	jwsToken, hash, err := generateJWS(canonizeGo, c.key)
+	jwsToken, hash, err := generateJWS(c.issuer.Alg, canonizeGo, c.issuer.Key)
 	if err != nil {
 		return err
 	}
@@ -66,16 +64,16 @@ func (c *TagusCompliance) SelfSign(vc *vcTypes.VerifiableCredential) error {
 		Type:               "JsonWebSignature2020",
 		Created:            time.Now().UTC().Format(time.RFC3339),
 		ProofPurpose:       "assertionMethod",
-		VerificationMethod: c.verificationMethod,
+		VerificationMethod: c.issuer.VerificationMethod,
 		JWS:                string(jwsToken),
 	}
 
-	publicKey, err := c.key.PublicKey()
+	publicKey, err := c.issuer.Key.PublicKey()
 	if err != nil {
 		return err
 	}
 
-	a, err := jws.Verify(jwsToken, jws.WithDetachedPayload([]byte(hash)), jws.WithKey(jwa.PS256, publicKey))
+	a, err := jws.Verify(jwsToken, jws.WithDetachedPayload([]byte(hash)), jws.WithKey(c.issuer.Alg, publicKey))
 	if err != nil {
 		return err
 	}
@@ -111,13 +109,15 @@ func (c *TagusCompliance) SelfSignVC(vc *vcTypes.VerifiableCredential) (*vcTypes
 		}
 		return nil, proofError
 	}
-	vc.Issuer = c.issuer
+	vc.Issuer = c.issuer.Issuer
 	vc.IssuanceDate = time.Now().UTC().Format(time.RFC3339)
 
 	n, err := vc.CanonizeGo()
 	if err != nil {
 		return nil, err
 	}
+
+	log.Println(string(n))
 
 	jwsToken, _, err := c.generateJWS(n)
 	if err != nil {
@@ -128,7 +128,7 @@ func (c *TagusCompliance) SelfSignVC(vc *vcTypes.VerifiableCredential) (*vcTypes
 		Type:               "JsonWebSignature2020",
 		Created:            time.Now().UTC().Format(time.RFC3339),
 		ProofPurpose:       "assertionMethod",
-		VerificationMethod: c.verificationMethod,
+		VerificationMethod: c.issuer.VerificationMethod,
 		JWS:                string(jwsToken),
 	}
 
@@ -163,12 +163,12 @@ func (c *TagusCompliance) SelfVerify(vc *vcTypes.VerifiableCredential) error {
 
 	h := vcTypes.EncodeToString(hash)
 
-	publicKey, err := c.key.PublicKey()
+	publicKey, err := c.issuer.Key.PublicKey()
 	if err != nil {
 		return err
 	}
 
-	a, err := jws.Verify([]byte(vc.Proof.Proofs[0].JWS), jws.WithDetachedPayload([]byte(h)), jws.WithKey(jwa.PS256, publicKey))
+	a, err := jws.Verify([]byte(vc.Proof.Proofs[0].JWS), jws.WithDetachedPayload([]byte(h)), jws.WithKey(c.issuer.Alg, publicKey))
 	if err != nil {
 		return err
 	}
@@ -274,7 +274,7 @@ func (c *TagusCompliance) SignTermsAndConditions(id string) (*vcTypes.Verifiable
 		}},
 		Type:              vcTypes.VCType{Types: []string{"VerifiableCredential"}},
 		IssuanceDate:      time.Now().UTC().Format(time.RFC3339),
-		Issuer:            c.issuer,
+		Issuer:            c.issuer.Issuer,
 		ID:                id,
 		CredentialSubject: vcTypes.CredentialSubject{CredentialSubject: []map[string]interface{}{tcMAP}},
 	}
@@ -339,7 +339,7 @@ func (c *TagusCompliance) SelfSignCredentialSubject(id string, credentialSubject
 		}},
 		Type:              vcTypes.VCType{Types: []string{"VerifiableCredential"}},
 		IssuanceDate:      time.Now().UTC().Format(time.RFC3339),
-		Issuer:            c.issuer,
+		Issuer:            c.issuer.Issuer,
 		ID:                id,
 		CredentialSubject: vcTypes.CredentialSubject{CredentialSubject: credentialSubject},
 	}
@@ -364,8 +364,25 @@ func (c *TagusCompliance) GaiaXSignParticipant(options ParticipantComplianceOpti
 		return nil, nil, err
 	}
 
+	options.participantVC.CredentialsStatus = map[string]interface{}{
+		"id":                   "https://example.com/credentials/status/3#94567",
+		"type":                 "BitstringStatusListEntry",
+		"statusPurpose":        "revocation",
+		"statusListIndex":      "94567",
+		"statusListCredential": "https://example.com/credentials/status/3",
+	}
+
+	options.participantVC.Context.Context = append(options.participantVC.Context.Context, vcTypes.Namespace{URL: "https://www.w3.org/ns/credentials/status/v1"})
+	//options.participantVC.Context.Context = append(options.participantVC.Context.Context, vcTypes.Namespace{URL: "https://www.w3.org/ns/credentials/status#BitstringStatusListEntry"})
+
 	options.participantVC, err = c.SelfSignVC(options.participantVC)
 	if err != nil {
+		return nil, nil, err
+	}
+
+	err = c.SelfVerify(options.participantVC)
+	if err != nil {
+		log.Println(err)
 		return nil, nil, err
 	}
 
@@ -442,7 +459,7 @@ func (c *TagusCompliance) SelfSignSignTermsAndConditions(id string) (*vcTypes.Ve
 		}},
 		Type:              vcTypes.VCType{Types: []string{"VerifiableCredential"}},
 		IssuanceDate:      time.Now().UTC().Format(time.RFC3339),
-		Issuer:            c.issuer,
+		Issuer:            c.issuer.Issuer,
 		ID:                id,
 		CredentialSubject: vcTypes.CredentialSubject{CredentialSubject: []map[string]interface{}{tcMAP}},
 	}
@@ -575,7 +592,7 @@ func (c *TagusCompliance) generateJWS(sd []byte) ([]byte, string, error) {
 		return nil, "", err
 	}
 
-	buf, err := jws.Sign(nil, jws.WithKey(jwa.PS256, c.key, jws.WithProtectedHeaders(header)), jws.WithDetachedPayload([]byte(hash)))
+	buf, err := jws.Sign(nil, jws.WithKey(c.issuer.Alg, c.issuer.Key, jws.WithProtectedHeaders(header)), jws.WithDetachedPayload([]byte(hash)))
 	if err != nil {
 		return nil, "", err
 	}
@@ -583,8 +600,33 @@ func (c *TagusCompliance) generateJWS(sd []byte) ([]byte, string, error) {
 	return buf, hash, nil
 }
 
+// deprecated
+type ParticipantOptionsAsMap struct {
+	ParticipantCredentialSubject []map[string]interface{}
+}
+
+func (pm ParticipantOptionsAsMap) BuildParticipantVC(id string) (*vcTypes.VerifiableCredential, error) {
+	vc := vcTypes.NewEmptyVerifiableCredential()
+	vc.Context.Context = append(vc.Context.Context, vcTypes.SecuritySuitesJWS2020, trustFrameworkNamespace)
+	vc.ID = id
+	vc.CredentialSubject.CredentialSubject = pm.ParticipantCredentialSubject
+	return vc, nil
+}
+
+type ParticipantV1OptionsAsMap struct {
+	ParticipantCredentialSubject []map[string]interface{}
+}
+
+func (pm ParticipantV1OptionsAsMap) BuildParticipantVC(id string) (*vcTypes.VerifiableCredential, error) {
+	vc := vcTypes.NewEmptyVerifiableCredential()
+	vc.Context.Context = append(vc.Context.Context, vcTypes.SecuritySuitesJWS2020, trustFrameworkNamespace)
+	vc.ID = id
+	vc.CredentialSubject.CredentialSubject = pm.ParticipantCredentialSubject
+	return vc, nil
+}
+
 // generateJWS sd has to be the normalized sd
-func generateJWS(sd []byte, privateKey jwk.Key) ([]byte, string, error) {
+func generateJWS(alg jwa.SignatureAlgorithm, sd []byte, privateKey jwk.Key) ([]byte, string, error) {
 	hash := hash256(sd)
 
 	header := jws.NewHeaders()
@@ -597,7 +639,7 @@ func generateJWS(sd []byte, privateKey jwk.Key) ([]byte, string, error) {
 		return nil, "", err
 	}
 
-	buf, err := jws.Sign(nil, jws.WithKey(jwa.PS256, privateKey, jws.WithProtectedHeaders(header)), jws.WithDetachedPayload([]byte(hash)))
+	buf, err := jws.Sign(nil, jws.WithKey(alg, privateKey, jws.WithProtectedHeaders(header)), jws.WithDetachedPayload([]byte(hash)))
 	if err != nil {
 		return nil, "", err
 	}

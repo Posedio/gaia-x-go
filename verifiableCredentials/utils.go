@@ -170,6 +170,10 @@ func VerifyJWS(token []byte) (*did.DID, *JWTHeader, []byte, error) {
 			resolveSigErr = errors.Join(resolveSigErr, fmt.Errorf("key %v not in did web %v", header.KID, header.Issuer))
 			continue
 		}
+		if key.JWK.Algorithm() != header.Algorithm {
+			resolveSigErr = errors.Join(resolveSigErr, fmt.Errorf("alg in jws %v does not match alg in did %v", header.Algorithm, key.JWK.Algorithm()))
+			continue
+		}
 
 		payload, err := jws.Verify(token, jws.WithKey(header.Algorithm, key.JWK))
 		if err != nil {
@@ -202,6 +206,13 @@ func WithAnyURI(value string) URL {
 	return URL{
 		Value: value,
 		Type:  XSDanyURI,
+	}
+}
+
+func WithAnyType(value any, t string) map[string]any {
+	return map[string]any{
+		"@type":  t,
+		"@value": value,
 	}
 }
 

@@ -476,7 +476,7 @@ func (vp *VerifiablePresentation) GetOriginalJWS() []byte {
 	return nil
 }
 
-func (vp *VerifiablePresentation) Verify(options ...*VerifyOption) error {
+func (vp *VerifiablePresentation) Verify(options ...*verifyOption) error {
 	if vp.signature == nil {
 		return fmt.Errorf("verifiablePresentation is missing signature")
 	}
@@ -558,7 +558,6 @@ func (vp *VerifiablePresentation) Verify(options ...*VerifyOption) error {
 
 	if vO.issuerMatch {
 		if vp.Issuer != vp.signature.JWTHeader.Issuer {
-			log.Println(vp.Issuer, vp.signature.JWTHeader.Issuer)
 			log.Printf("verifiablePresentation is not valid %v %v", vp.Issuer, vp.signature.JWTHeader.Issuer)
 			return fmt.Errorf("verifialePresentation issuer does not match JWT issuer")
 		}
@@ -826,7 +825,7 @@ func (c *VerifiableCredential) AddSignature(originalJWS []byte) error {
 
 }
 
-func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
+func (c *VerifiableCredential) Verify(options ...*verifyOption) error {
 	if c.Proof == nil && c.signature == nil {
 		return errors.New("verifiableCredential does neither have a signature nor a proof")
 	}
@@ -858,6 +857,10 @@ func (c *VerifiableCredential) Verify(options ...*VerifyOption) error {
 		key, k := c.signature.DID.Keys[c.signature.JWTHeader.KID]
 		if !k {
 			return errors.New("the KID from the JWT header does not match any key from the issuer DID")
+		}
+
+		if key.JWK.Algorithm() != c.signature.JWTHeader.Algorithm {
+			return fmt.Errorf("alg in jws %v does not match alg in did %v", c.signature.JWTHeader.Algorithm, key.JWK.Algorithm())
 		}
 
 		cert, err := VerifyCertChain(key.JWK.X509URL())
@@ -1401,11 +1404,11 @@ func (cs *Proofs) UnmarshalJSON(dat []byte) error {
 	return nil
 }
 
-type VerifyOption struct {
+type verifyOption struct {
 	f func(option *verifyOptions) error
 }
 
-func (so *VerifyOption) apply(option *verifyOptions) error {
+func (so *verifyOption) apply(option *verifyOptions) error {
 	return so.f(option)
 }
 
@@ -1419,15 +1422,15 @@ type verifyOptions struct {
 	trustedIssuerUrl      string
 }
 
-func UseOldSignAlgorithm() *VerifyOption {
-	return &VerifyOption{f: func(option *verifyOptions) error {
+func UseOldSignAlgorithm() *verifyOption {
+	return &verifyOption{f: func(option *verifyOptions) error {
 		option.useOldSignature = true
 		return nil
 	}}
 }
 
-func IsGaiaXTrustedIssuer(trustedIssuerUrl string) *VerifyOption {
-	return &VerifyOption{f: func(option *verifyOptions) error {
+func IsGaiaXTrustedIssuer(trustedIssuerUrl string) *verifyOption {
+	return &verifyOption{f: func(option *verifyOptions) error {
 		if trustedIssuerUrl == "" {
 			option.trustedIssuerUrl = "https://gx-registry.gxdch.dih.telekom.com/v2/api/trusted-issuers"
 		} else {
@@ -1438,15 +1441,15 @@ func IsGaiaXTrustedIssuer(trustedIssuerUrl string) *VerifyOption {
 	}}
 }
 
-func IssuerMatch() *VerifyOption {
-	return &VerifyOption{f: func(option *verifyOptions) error {
+func IssuerMatch() *verifyOption {
+	return &verifyOption{f: func(option *verifyOptions) error {
 		option.issuerMatch = true
 		return nil
 	}}
 }
 
-func retryWithOldSignAlgorithm() *VerifyOption {
-	return &VerifyOption{f: func(option *verifyOptions) error {
+func retryWithOldSignAlgorithm() *verifyOption {
+	return &verifyOption{f: func(option *verifyOptions) error {
 		option.useOldSignature = true
 		option.retryWithOldSignature = true
 		return nil

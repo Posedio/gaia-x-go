@@ -886,28 +886,31 @@ type AccessUsagePolicy struct {
 
 // EnergyUsageEfficiency represents the efficiency of energy usage in a resource
 type EnergyUsageEfficiency struct {
+	vc.CredentialSubjectShape
 	// Legal documents containing certifications
 	Certifications []LegalDocument `json:"gx:certifications,omitempty"`
 	// The effectiveness of power usage, represented as a float
-	PowerUsageEffectiveness float64 `json:"gx:powerUsageEffectiveness"`
+	PowerUsageEffectiveness any `json:"gx:powerUsageEffectiveness,omitempty"`
 }
 
 // WaterUsageEffectiveness represents the effectiveness of water usage in a resource
 type WaterUsageEffectiveness struct {
+	vc.CredentialSubjectShape
 	// Legal documents certifying the water usage effectiveness
 	Certifications []LegalDocument `json:"gx:certifications,omitempty"`
 	// The effectiveness of water usage, represented as a float
-	WaterUsageEffectiveness float64 `json:"gx:waterUsageEffectiveness"`
+	WaterUsageEffectiveness any `json:"gx:waterUsageEffectiveness,omitempty"`
 }
 
 // EnergyMix details the composition of energy sources
 type EnergyMix struct {
+	vc.CredentialSubjectShape
 	// Date for which this energy mix has been attained
-	Date time.Time `json:"gx:date"`
+	Date any `json:"gx:attainmentDate,omitempty"`
 	// Percentage of renewable energy in the energy mix
-	RenewableEnergy float64 `json:"gx:renewableEnergy"`
+	RenewableEnergy any `json:"gx:renewableEnergy,omitempty"`
 	// Percentage of hourly carbon-free energy in the energy mix
-	HourlyCarbonFreeEnergy float64 `json:"gx:hourlyCarbonFreeEnergy"`
+	HourlyCarbonFreeEnergy any `json:"gx:hourlyCarbonFreeEnergy,omitempty"`
 }
 
 // QoSMetric represents a quality of service metric with a guaranteed performance level

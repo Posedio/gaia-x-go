@@ -106,15 +106,15 @@ func TestNewDIDFromCertificate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	JWKPublicAsMap["x5u"] = "http://url.to.your.certificate.chain"
+	JWKPublicAsMap["x5u"] = "http://did.dumss.me/.well-known/chain.pem"
 	JWKPublicAsMap["alg"] = jwa.PS256
 
-	DID := did.NewDID("did:web:test.test")
+	DID := did.NewDID("did:web:did.dumss.me")
 
 	DID.VerificationMethod = []did.VerificationMethod{
 		{
-			Id:           "did:web:test.test#RSA",
-			Controller:   "did:web:test.test",
+			Id:           "did:web:did.dumss.me#v1-2025",
+			Controller:   "did:web:did.dumss.me",
 			Type:         "JsonWebKey2020",
 			PublicKeyJwk: JWKPublicAsMap,
 		},
@@ -122,11 +122,16 @@ func TestNewDIDFromCertificate(t *testing.T) {
 
 	DID.AssertionMethod = did.VerificationMethods{
 		did.VerificationMethod{
-			Id: "did:web:test.test#RSA",
+			Id: "did:web:did.dumss.me#v1-2025",
 		},
 	}
 
 	DIDPublicJson, err := json.MarshalIndent(DID, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = DID.ResolveMethods()
 	if err != nil {
 		t.Fatal(err)
 	}

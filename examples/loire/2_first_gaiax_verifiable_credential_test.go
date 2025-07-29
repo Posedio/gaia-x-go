@@ -16,7 +16,9 @@ import (
 func TestFirstComplianceCredential(t *testing.T) {
 	// to retrieve the first Gaia-X credential, only the endpoint for the notary part of the Gaia-x Clearing Houses is needed
 	// rest can be empty for now. It is possible to choose from: compliance.LabV1, compliance.ArubaV1Notary and compliance.TSystemV1
-	connector, err := compliance.NewComplianceConnector("", compliance.DeltaDaoV2Notary, "loire", nil, "", "")
+	connector, err := compliance.NewComplianceConnectorV2(
+		compliance.Endpoints{Notary: compliance.DeltaDaoV2Notary},
+		"loire", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +27,7 @@ func TestFirstComplianceCredential(t *testing.T) {
 	// compliance.VatID, compliance.LeiCode, compliance.EUID, compliance.EORI,or compliance.TaxID
 	lrnOptions := compliance.LegalRegistrationNumberOptions{
 		Id:                 "http://lrn.test", // Id for the VerifiableCredential that it can be unique identified
-		RegistrationNumber: "FR79537407926",   // Legal Registration Number in this case the on of the GAIA-X AISBL
+		RegistrationNumber: "ATU66624566",     // Legal Registration Number in this case the on of the GAIA-X AISBL
 		Type:               compliance.VatID,  // Type of the Legal Registration NUmber see List above
 	}
 

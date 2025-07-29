@@ -4,18 +4,27 @@ import (
 	"github.com/Posedio/gaia-x-go/compliance"
 	"github.com/Posedio/gaia-x-go/gxTypes"
 	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 	"testing"
 	"time"
 )
 
-func TestLegalPerson(t *testing.T) {
+func TestLegalPersonDirect(t *testing.T) {
 	var idprefix = "https://did.dumss.me/"
 	var issuer = "did:web:did.dumss.me"
 	var countryCode = "AT"
 	var countryName = "Austria"
 
 	// instantiate a Compliance Connector for the Loire release
-	connector, err := compliance.NewComplianceConnector(compliance.V2Staging, compliance.DeltaDaoV2Notary, "loire", key, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
+	connector, err := compliance.NewComplianceConnectorV2(
+		compliance.Endpoints{Compliance: compliance.V2Staging, Notary: compliance.DeltaDaoV2Notary},
+		"loire",
+		&compliance.IssuerSetting{
+			Key:                key,
+			Alg:                jwa.PS256,
+			Issuer:             issuer,
+			VerificationMethod: "did:web:did.dumss.me#v1-2025",
+		})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,6 +33,7 @@ func TestLegalPerson(t *testing.T) {
 	vp := vc.NewEmptyVerifiablePresentationV2()
 
 	//retrieve the legal registration number vc from the GXDCH
+
 	LRNVC, err := connector.SignLegalRegistrationNumber(compliance.LegalRegistrationNumberOptions{
 		Id:                 idprefix + "LRN",
 		RegistrationNumber: "ATU75917607",
@@ -117,7 +127,9 @@ func TestLegalPerson(t *testing.T) {
 	companyVC.Context.Context = append(companyVC.Context.Context, vc.Namespace{
 		Namespace: "schema",
 		URL:       "https://schema.org/",
-	})
+	},
+	//vc.Namespace{URL: "https://www.w3.org/ns/credentials/status/v1"},
+	)
 
 	// with the LegalPerson struct we can define a legal person
 	companyCS := gxTypes.LegalPerson{
@@ -127,12 +139,17 @@ func TestLegalPerson(t *testing.T) {
 		// we can now use the generated address with id for the headquarters address
 		// to specify that the input we provide is ob type gx:Address we have to add this to the
 		HeadquartersAddress: gxTypes.Address{
-			CredentialSubjectShape: vc.CredentialSubjectShape{ID: addressCS.ID, Type: "gx:Address"},
+			CredentialSubjectShape: vc.CredentialSubjectShape{ID: addressVC.ID + "#cs"},
 		},
 		// we can now use the generated address with id for the legal address
 		// to specify that the input we provide is ob type gx:Address we have to add this to the
 		LegalAddress: gxTypes.Address{
-			CredentialSubjectShape: vc.CredentialSubjectShape{ID: addressCS.ID, Type: "gx:Address"},
+			//alternative define directly inline:
+			CountryCode:   countryCode,
+			CountryName:   countryName,
+			PostalCode:    "1040",
+			StreetAddress: "Weyringergasse 1-3/DG ",
+			Locality:      "Vienna",
 		},
 	}
 
@@ -147,15 +164,48 @@ func TestLegalPerson(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// add optional CredentialStatus
+	/*
+		companyVC.CredentialsStatus = map[string]interface{}{
+			"id":                   "https://example.com/credentials/status/3#94567",
+			"type":                 "BitstringStatusListEntry",
+			"statusPurpose":        "revocation",
+			"statusListIndex":      "94567",
+			"statusListCredential": "https://example.com/credentials/status/3",
+		}
+
+	*/
+
 	err = connector.SelfSign(companyVC)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	t.Log(companyVC)
 
 	vp.AddEnvelopedVC(companyVC.GetOriginalJWS())
 	err = connector.SelfSignPresentation(vp, 365*24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(string(vp.GetOriginalJWS()))
+
+	offering, _, err := connector.SignServiceOffering(compliance.ServiceOfferingComplianceOptions{
+		Id:                        idprefix + "participant",
+		ServiceOfferingVP:         vp,
+		ServiceOfferingLabelLevel: compliance.Level0,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(offering)
+	t.Log(string(offering.GetOriginalJWS()))
+
+	vp.AddEnvelopedVC(offering.GetOriginalJWS())
+
+	credentials, err := vp.DecodeEnvelopedCredentials()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(credentials)
+
 }

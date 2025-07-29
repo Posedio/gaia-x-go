@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/hashicorp/go-retryablehttp"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 	"strings"
 	"time"
 
@@ -50,25 +51,7 @@ const (
 type Endpoints struct {
 	Registry   RegistryUrl
 	Notary     NotaryURL
-	Compliance ComplianceServiceUrl
-}
-
-type GXDCH struct {
-	V1 Endpoints
-	V2 Endpoints
-}
-
-var DeltaDAO = GXDCH{
-	V1: Endpoints{
-		Notary:     DeltaDaoV1Notary,
-		Registry:   DeltaDaoRegistryV1,
-		Compliance: DeltaDAOV1Compliance,
-	},
-	V2: Endpoints{
-		Notary:     DeltaDaoV2Notary,
-		Registry:   DeltaDAORegistryV2,
-		Compliance: DeltaDaoV2Compliance,
-	},
+	Compliance ServiceUrl
 }
 
 type NotaryURL string
@@ -84,6 +67,7 @@ const (
 	ProximusV1Notary NotaryURL = "https://gx-notary.gxdch.proximus.eu/v1/"
 	PfalzkomV1Notary NotaryURL = "https://trust-anker.pfalzkom-gxdch.de/v1/"
 	CISPEV1Notary    NotaryURL = "https://notary.cispe.gxdch.clouddataengine.io/v1/"
+	CISPEV2Notary    NotaryURL = "https://notary.cispe.gxdch.clouddataengine.io/v2/"
 	ArsysV2Notary    NotaryURL = "https://gx-notary.arsys.es/v2/"
 	TSystemV2Notary  NotaryURL = "https://gx-notary.gxdch.dih.telekom.com/v2/"
 	DeltaDaoV2Notary NotaryURL = "https://www.delta-dao.com/notary/v2/"
@@ -114,12 +98,32 @@ func (su ServiceUrl) String() string {
 	return string(su)
 }
 
+func (su ServiceUrl) CredentialOfferUrl() ServiceUrl {
+	return su
+}
+
+func (su ServiceUrl) StatusURL() string {
+	sURL := string(su)
+	if strings.Contains(sURL, "api") {
+		sURL = strings.Replace(sURL, "api", "", 1)
+	}
+	if strings.Contains(sURL, "/credential-offers") {
+		sURL = strings.Replace(sURL, "/credential-offers", "", 1)
+	}
+	if strings.Contains(sURL, "/credential-offer") {
+		sURL = strings.Replace(sURL, "/credential-offer", "", 1)
+	}
+	return sURL
+}
+
 const (
 	MainBranch        ServiceUrl = "https://compliance.lab.gaia-x.eu/main/api/credential-offers"
 	DevelopmentBranch ServiceUrl = "https://compliance.lab.gaia-x.eu/development/api/credential-offers"
 	V1Branch          ServiceUrl = "https://compliance.lab.gaia-x.eu/v1/api/credential-offers"
 	V1Staging         ServiceUrl = "https://compliance.lab.gaia-x.eu/v1-staging/api/credential-offers"
 	V2Staging         ServiceUrl = "https://compliance.lab.gaia-x.eu/main/api/credential-offers"
+	V2                ServiceUrl = "https://compliance.lab.gaia-x.eu/v2/api/credential-offers"
+	Development       ServiceUrl = "https://compliance.lab.gaia-x.eu/development/api/credential-offers"
 	AireV1            ServiceUrl = "https://gx-compliance.airenetworks.es/v1/credential-offer"
 	ArsysV1           ServiceUrl = "https://gx-compliance.arsys.es/v1/credential-offer"
 	ArubaV1           ServiceUrl = "https://gx-compliance.aruba.it/v1/credential-offer"
@@ -130,46 +134,11 @@ const (
 	ProximusV1        ServiceUrl = "https://gx-compliance.gxdch.proximus.eu/v1/credential-offer"
 	PfalzKomV1        ServiceUrl = "https://compliance.pfalzkom-gxdch.de/v1/credential-offer"
 	CISPEV1           ServiceUrl = "https://compliance.cispe.gxdch.clouddataengine.io/v1/credential-offer"
+	CISPEV2           ServiceUrl = "https://compliance.cispe.gxdch.clouddataengine.io/v2/api/credential-offers"
 	ArsysV2           ServiceUrl = "https://gx-compliance.arsys.es/v2/api/credential-offers"
 	TSystemsV2        ServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v2/api/credential-offers"
 	DeltaDaoV2        ServiceUrl = "https://www.delta-dao.com/compliance/v2/api/credential-offers"
 	NeustaV2          ServiceUrl = "https://aerospace-digital-exchange.eu/compliance/v2/api/credential-offers"
-)
-
-type ComplianceServiceUrl string
-
-func (c ComplianceServiceUrl) CredentialOfferUrl() ServiceUrl {
-	return ServiceUrl(string(c) + "/credential-offers")
-}
-
-func (c ComplianceServiceUrl) StatusURL() string {
-	sURL := string(c)
-	if strings.Contains(sURL, "api") {
-		sURL = strings.Replace(sURL, "api", "", 1)
-	}
-	return sURL
-}
-
-const (
-	MainBranchCompliance        ComplianceServiceUrl = "https://compliance.lab.gaia-x.eu/main/api"
-	DevelopmentBranchCompliance ComplianceServiceUrl = "https://compliance.lab.gaia-x.eu/development/api"
-	V1BranchCompliance          ComplianceServiceUrl = "https://compliance.lab.gaia-x.eu/v1/api"
-	V1StagingCompliance         ComplianceServiceUrl = "https://compliance.lab.gaia-x.eu/v1-staging/api"
-	V2StagingCompliance         ComplianceServiceUrl = "https://compliance.lab.gaia-x.eu/main/api"
-	AireV1Compliance            ComplianceServiceUrl = "https://gx-compliance.airenetworks.es/v1"
-	ArsysV1Compliance           ComplianceServiceUrl = "https://gx-compliance.arsys.es/v1"
-	ArubaV1Compliance           ComplianceServiceUrl = "https://gx-compliance.aruba.it/v1"
-	TSystemsV1Compliance        ComplianceServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v1"
-	DeltaDAOV1Compliance        ComplianceServiceUrl = "https://www.delta-dao.com/compliance/v1"
-	OVHV1Compliance             ComplianceServiceUrl = "https://compliance.gxdch.gaiax.ovh/v1"
-	NeustaV1Compliance          ComplianceServiceUrl = "https://aerospace-digital-exchange.eu/compliance/v1"
-	ProximusV1Compliance        ComplianceServiceUrl = "https://gx-compliance.gxdch.proximus.eu/v1"
-	PfalzKomV1Compliance        ComplianceServiceUrl = "https://compliance.pfalzkom-gxdch.de/v1"
-	CISPEV1Compliance           ComplianceServiceUrl = "https://compliance.cispe.gxdch.clouddataengine.io/v1"
-	ArsysV2Compliance           ComplianceServiceUrl = "https://gx-compliance.arsys.es/v2/api"
-	TSystemsV2Compliance        ComplianceServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v2/api"
-	DeltaDaoV2Compliance        ComplianceServiceUrl = "https://www.delta-dao.com/compliance/v2/api"
-	NeustaV2Compliance          ComplianceServiceUrl = "https://aerospace-digital-exchange.eu/compliance/v2/api"
 )
 
 type RegistryUrl string
@@ -201,6 +170,7 @@ const (
 	ProximusRegistryV1 RegistryUrl = "https://gx-registry.gxdch.proximus.eu/v1/"
 	PfalzkomRegistryV1 RegistryUrl = "https://portal.pfalzkom-gxdch.de/v1/"
 	CISPERegistryV1    RegistryUrl = "https://registry.cispe.gxdch.clouddataengine.io/v1/"
+	CISPERegistryV2    RegistryUrl = "https://registry.cispe.gxdch.clouddataengine.io/v2/"
 	RegistryV1         RegistryUrl = "https://registry.lab.gaia-x.eu/v1/"
 	ArsysRegistryV2    RegistryUrl = "https://gx-registry.arsys.es/v2/"
 	TSystemRegistryV2  RegistryUrl = "https://gx-registry.gxdch.dih.telekom.com/v2/"
@@ -235,6 +205,129 @@ var participantNamespace = vcTypes.Namespace{
 	URL:       participantURL,
 }
 
+type IssuerSetting struct {
+	Key                jwk.Key
+	Alg                jwa.SignatureAlgorithm
+	Issuer             string
+	VerificationMethod string
+}
+
+type options struct {
+	retryClient *retryablehttp.Client
+}
+
+// option for future usage
+type option struct {
+	f func(option *options) error
+}
+
+func (so *option) apply(option *options) error {
+	return so.f(option)
+}
+
+func CustomRetryClient(client *retryablehttp.Client) *option {
+	return &option{f: func(option *options) error {
+		option.retryClient = client
+		return nil
+	}}
+}
+
+func NewComplianceConnectorV2(clearingHouse Endpoints, version string, issuer *IssuerSetting, opts ...option) (Compliance, error) {
+	opt := &options{}
+	for _, o := range opts {
+		if err := o.apply(opt); err != nil {
+			return nil, err
+		}
+	}
+	if opt.retryClient == nil {
+		opt.retryClient = retryablehttp.NewClient()
+		opt.retryClient.RetryMax = 2
+		opt.retryClient.RetryWaitMax = 60 * time.Second
+		opt.retryClient.HTTPClient.Timeout = 60 * time.Second
+		opt.retryClient.Logger = nil
+		opt.retryClient.CheckRetry = vcTypes.DefaultRetryPolicy
+	}
+
+	hc := opt.retryClient.StandardClient()
+
+	var didResolved *did.DID
+	if issuer != nil {
+		if issuer.Issuer != "" || issuer.Key != nil || issuer.VerificationMethod != "" {
+			var err error
+			didResolved, err = did.ResolveDIDWeb(issuer.Issuer)
+			if err != nil {
+				var err1 error
+				didResolved, err1 = did.UniResolverDID(issuer.Issuer)
+				if err1 != nil {
+					return nil, errors.Join(err, err1)
+				}
+			}
+
+			err = didResolved.ResolveMethods()
+			if err != nil {
+				return nil, err
+			}
+
+			k, ok := didResolved.Keys[issuer.VerificationMethod]
+			if !ok {
+				return nil, fmt.Errorf("verification method %v not in the did %v", issuer.VerificationMethod, issuer)
+			}
+
+			if issuer.Key != nil {
+				verifyKey, err := issuer.Key.PublicKey()
+				if err != nil {
+					return nil, err
+				}
+				if !jwk.Equal(verifyKey, k.JWK) {
+					return nil, fmt.Errorf("public key from key does not match public key of did")
+				}
+			}
+		}
+	}
+
+	if version == "22.10" || version == "tagus" || version == "Tagus" {
+
+		c := &TagusCompliance{
+			signUrl:   clearingHouse.Compliance,
+			version:   version,
+			issuer:    issuer,
+			notaryURL: clearingHouse.Notary,
+			client:    hc,
+			did:       didResolved,
+			validate:  validator.New(),
+		}
+
+		err := c.validate.RegisterValidation("validateRegistrationNumberType", ValidateRegistrationNumberType)
+		if err != nil {
+			return nil, err
+		}
+
+		return c, nil
+	} else if version == "24.11" || version == "loire" || version == "Loire" {
+
+		c := &LoireCompliance{
+			signUrl:   clearingHouse.Compliance,
+			version:   version,
+			issuer:    issuer,
+			notaryURL: clearingHouse.Notary,
+			client:    hc,
+			did:       didResolved,
+			validate:  validator.New(),
+		}
+
+		err := c.validate.RegisterValidation("validateRegistrationNumberType", ValidateRegistrationNumberType)
+		if err != nil {
+			return nil, err
+		}
+
+		return c, nil
+	}
+
+	return nil, errors.New("not supported version")
+}
+
+// NewComplianceConnector
+// Deprecated: will be removed with the next major release
 func NewComplianceConnector(signUrl ServiceUrl, notaryUrl NotaryURL, version string, key jwk.Key, issuer string, verificationMethod string) (Compliance, error) {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 2
@@ -279,17 +372,20 @@ func NewComplianceConnector(signUrl ServiceUrl, notaryUrl NotaryURL, version str
 	}
 
 	if version == "22.10" || version == "tagus" || version == "Tagus" {
-
+		iss := &IssuerSetting{
+			Key:                key,
+			VerificationMethod: verificationMethod,
+			Issuer:             issuer,
+			Alg:                jwa.PS256,
+		}
 		c := &TagusCompliance{
-			signUrl:            signUrl,
-			version:            version,
-			key:                key,
-			issuer:             issuer,
-			notaryURL:          notaryUrl,
-			verificationMethod: verificationMethod,
-			client:             hc,
-			did:                didResolved,
-			validate:           validator.New(),
+			signUrl:   signUrl,
+			version:   version,
+			issuer:    iss,
+			notaryURL: notaryUrl,
+			client:    hc,
+			did:       didResolved,
+			validate:  validator.New(),
 		}
 
 		err := c.validate.RegisterValidation("validateRegistrationNumberType", ValidateRegistrationNumberType)
@@ -299,17 +395,20 @@ func NewComplianceConnector(signUrl ServiceUrl, notaryUrl NotaryURL, version str
 
 		return c, nil
 	} else if version == "24.11" || version == "loire" || version == "Loire" {
-
+		iss := &IssuerSetting{
+			Key:                key,
+			VerificationMethod: verificationMethod,
+			Issuer:             issuer,
+			Alg:                jwa.PS256,
+		}
 		c := &LoireCompliance{
-			signUrl:            signUrl,
-			version:            version,
-			key:                key,
-			issuer:             issuer,
-			notaryURL:          notaryUrl,
-			verificationMethod: verificationMethod,
-			client:             hc,
-			did:                didResolved,
-			validate:           validator.New(),
+			signUrl:   signUrl,
+			version:   version,
+			issuer:    iss,
+			notaryURL: notaryUrl,
+			client:    hc,
+			did:       didResolved,
+			validate:  validator.New(),
 		}
 
 		err := c.validate.RegisterValidation("validateRegistrationNumberType", ValidateRegistrationNumberType)
@@ -405,17 +504,21 @@ func (pco *ParticipantComplianceOptions) BuildParticipantVC() error {
 	pco.participantVC = vc
 
 	//test on legal registration number
-	lrn, k := pco.participantVC.CredentialSubject.CredentialSubject[0]["gx:legalRegistrationNumber"].(map[string]interface{})
-	if k {
-		if id, ok := lrn["id"].(string); ok {
-			if id != pco.LegalRegistrationNumberVC.ID {
+	lrn, k := pco.participantVC.CredentialSubject.CredentialSubject[0]["gx:legalRegistrationNumber"].(map[string]interface{}) //tagus
+	if !k {
+		lrn, k = pco.participantVC.CredentialSubject.CredentialSubject[0]["gx:registrationNumber"].(map[string]interface{}) //loire
+		if !k {
+			return errors.New("legal registration number not present")
+		}
+	}
+	if id, ok := lrn["id"].(string); ok {
+		if id != pco.LegalRegistrationNumberVC.ID { //tagus
+			if id != pco.LegalRegistrationNumberVC.ID+"#CS" { //loire
 				return errors.New("legal registration number id does not match")
 			}
-		} else {
-			return errors.New("legal registration number id missing")
 		}
 	} else {
-		return errors.New("gx:legalRegistrationNumber missing")
+		return errors.New("legal registration number id missing")
 	}
 
 	return nil
@@ -423,18 +526,6 @@ func (pco *ParticipantComplianceOptions) BuildParticipantVC() error {
 
 type ParticipantOptions interface {
 	BuildParticipantVC(id string) (*vcTypes.VerifiableCredential, error)
-}
-
-type ParticipantOptionsAsMap struct {
-	ParticipantCredentialSubject []map[string]interface{}
-}
-
-func (pm ParticipantOptionsAsMap) BuildParticipantVC(id string) (*vcTypes.VerifiableCredential, error) {
-	vc := vcTypes.NewEmptyVerifiableCredential()
-	vc.Context.Context = append(vc.Context.Context, vcTypes.SecuritySuitesJWS2020, trustFrameworkNamespace)
-	vc.ID = id
-	vc.CredentialSubject.CredentialSubject = pm.ParticipantCredentialSubject
-	return vc, nil
 }
 
 type ServiceOfferingOptionsAsMap struct {

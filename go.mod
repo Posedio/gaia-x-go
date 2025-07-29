@@ -4,12 +4,12 @@ go 1.24
 
 require (
 	github.com/dgraph-io/ristretto/v2 v2.2.0
-	github.com/go-playground/validator/v10 v10.26.0
+	github.com/go-playground/validator/v10 v10.27.0
 	github.com/goccy/go-json v0.10.5
 	github.com/gowebpki/jcs v1.0.1
-	github.com/hashicorp/go-retryablehttp v0.7.7
-	github.com/lestrrat-go/jwx/v2 v2.1.4
-	github.com/piprate/json-gold v0.5.0
+	github.com/hashicorp/go-retryablehttp v0.7.8
+	github.com/lestrrat-go/jwx/v2 v2.1.6
+	github.com/piprate/json-gold v0.7.0
 	github.com/stretchr/testify v1.10.0
 )
 
@@ -23,7 +23,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
-	github.com/lestrrat-go/blackmagic v1.0.2 // indirect
+	github.com/lestrrat-go/blackmagic v1.0.3 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/httprc v1.0.6 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect

@@ -7,6 +7,7 @@ Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 package loire
 
 import (
+	"github.com/lestrrat-go/jwx/v2/jwa"
 	"testing"
 	"time"
 
@@ -22,7 +23,15 @@ func TestDataProduct(t *testing.T) {
 	var countryName = "Austria"
 
 	// instantiate a Compliance Connector for the Loire release
-	connector, err := compliance.NewComplianceConnector(compliance.V2Staging, compliance.ArsysV2Notary, "loire", key, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
+	connector, err := compliance.NewComplianceConnectorV2(
+		compliance.Endpoints{Compliance: compliance.V2Staging, Notary: compliance.DeltaDaoV2Notary},
+		"loire",
+		&compliance.IssuerSetting{
+			Key:                key,
+			Alg:                jwa.PS256,
+			Issuer:             issuer,
+			VerificationMethod: "did:web:did.dumss.me#v1-2025",
+		})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +49,7 @@ func TestDataProduct(t *testing.T) {
 		t.Fatal(err)
 	}
 	// verify the credential (not needed but recommended)
-	err = LRNVC.Verify(vc.IssuerMatch(), vc.IsGaiaXTrustedIssuer(compliance.ArsysV2Notary.String()))
+	err = LRNVC.Verify(vc.IssuerMatch(), vc.IsGaiaXTrustedIssuer(compliance.DeltaDaoV2Notary.String()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,6 +164,101 @@ func TestDataProduct(t *testing.T) {
 	vp.AddEnvelopedVC(companyVC.GetOriginalJWS())
 
 	// now we're starting to fulfill all criteria
+
+	// ___________________________________ criteria ___________________________________
+	// The Provider shall ensure that the Service Offering meets or relies on an infrastructure Services Offering which meets
+	//a high standard in energy efficiency, meeting an annual target of PUE of 1.3 in cool climates and 1.4 in warm climates
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/docs/labelling-criteria.md#criterion-p612
+	// https://docs.gaia-x.eu/policy-rules-committee/compliance-document/24.11/criteria_cloud_services/#P6.1.2
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/src/vp-validation/filter/service-offering-is-sustainable.filter.ts
+
+	EnergyUsageVC, _ := vc.NewEmptyVerifiableCredentialV2(
+		vc.WithVCID(idprefix+"EnergyUsageEfficiency"),
+		vc.WithValidFromNow(),
+		vc.WithAdditionalTypes("gx:EnergyUsageEfficiency"),
+		vc.WithIssuer(issuer),
+		vc.WithGaiaXContext(),
+	)
+
+	EnergyUsageCS := &gxTypes.EnergyUsageEfficiency{
+		CredentialSubjectShape:  vc.CredentialSubjectShape{Type: "gx:EnergyUsageEfficiency", ID: EnergyUsageVC.ID + "#CS"},
+		PowerUsageEffectiveness: vc.WithAnyType(1.81, "xsd:float"),
+	}
+
+	err = EnergyUsageVC.AddToCredentialSubject(EnergyUsageCS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = connector.SelfSign(EnergyUsageVC)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vp.AddEnvelopedVC(EnergyUsageVC.GetOriginalJWS())
+
+	// ___________________________________ criteria ___________________________________
+	// The Provider shall ensure that the Service Offering meets or relies on an infrastructure Services Offering for which
+	//electricity demand will be matched by 75% renewable energy or hourly carbon-free energy by 31st December 2025, and
+	//100%
+	//by 31st December 2030.
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/docs/labelling-criteria.md#criterion-p613
+	// https://docs.gaia-x.eu/policy-rules-committee/compliance-document/24.11/criteria_cloud_services/#P6.1.3
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/src/vp-validation/filter/service-offering-is-sustainable.filter.ts
+
+	EnergyMixVC, _ := vc.NewEmptyVerifiableCredentialV2(
+		vc.WithVCID(idprefix+"EnergyMix"),
+		vc.WithValidFromNow(),
+		vc.WithAdditionalTypes("gx:EnergyMix"),
+		vc.WithIssuer(issuer),
+		vc.WithGaiaXContext())
+
+	EnergyMixCS := gxTypes.EnergyMix{
+		CredentialSubjectShape: vc.CredentialSubjectShape{Type: "gx:EnergyMix", ID: EnergyMixVC.ID + "#CS"},
+		Date:                   vc.WithAnyType(time.Now().Format(time.DateOnly), "xsd:date"),
+		RenewableEnergy:        vc.WithAnyType(2.67, "xsd:float"),
+		HourlyCarbonFreeEnergy: vc.WithAnyType(2.61, "xsd:float"),
+	}
+
+	err = EnergyMixVC.AddToCredentialSubject(EnergyMixCS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = connector.SelfSign(EnergyMixVC)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	vp.AddEnvelopedVC(EnergyMixVC.GetOriginalJWS())
+
+	// ___________________________________ criteria ___________________________________
+	// The Provider shall ensure that the Service Offering meets or relies on an infrastructure Services Offering that will
+	//meet a high standard for water conservation demonstrated through the application of a location and source sensitive
+	//water usage effectiveness (WUE)target of 0.4 L/kWh in areas with water stress.
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/docs/labelling-criteria.md#criterion-p614
+	// https://docs.gaia-x.eu/policy-rules-committee/compliance-document/24.11/criteria_cloud_services/#P6.1.4
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/src/vp-validation/filter/service-offering-is-sustainable.filter.ts
+
+	WaterUsageVC, _ := vc.NewEmptyVerifiableCredentialV2(
+		vc.WithVCID(idprefix+"WaterUsageEfficiency"),
+		vc.WithValidFromNow(),
+		vc.WithAdditionalTypes("gx:WaterUsageEffectiveness"),
+		vc.WithIssuer(issuer),
+		vc.WithGaiaXContext())
+
+	WaterUsageCS := &gxTypes.WaterUsageEffectiveness{
+		CredentialSubjectShape:  vc.CredentialSubjectShape{Type: "gx:WaterUsageEffectiveness", ID: WaterUsageVC.ID + "#CS"},
+		WaterUsageEffectiveness: vc.WithAnyType(2.05, "xsd:float"),
+	}
+
+	err = WaterUsageVC.AddToCredentialSubject(WaterUsageCS)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = connector.SelfSign(WaterUsageVC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vp.AddEnvelopedVC(WaterUsageVC.GetOriginalJWS())
 	// ___________________________________ criteria ___________________________________
 	// Communication Security: Ensure the protection of information in networks and the corresponding information processing
 	//systems.
@@ -178,6 +282,15 @@ func TestDataProduct(t *testing.T) {
 			Location: make([]gxTypes.Address, 1),
 			// required who owns the resource which will be again the company set above
 			OwnedBy: []gxTypes.LegalPerson{{Participant: gxTypes.Participant{GaiaXEntity: gxTypes.GaiaXEntity{CredentialSubjectShape: vc.CredentialSubjectShape{ID: companyCS.ID, Type: "gx:LegalPerson"}}}}},
+			EnergyUsageEfficiency: &gxTypes.EnergyUsageEfficiency{
+				CredentialSubjectShape: vc.CredentialSubjectShape{ID: EnergyUsageCS.ID},
+			},
+			EnergyMix: []gxTypes.EnergyMix{{
+				CredentialSubjectShape: vc.CredentialSubjectShape{ID: EnergyMixCS.ID},
+			}},
+			WaterUsageEffectiveness: &gxTypes.WaterUsageEffectiveness{
+				CredentialSubjectShape: vc.CredentialSubjectShape{ID: WaterUsageCS.ID},
+			},
 		},
 		// does not work with the current main version
 		// Participants: []LegalPerson{{Participant: Participant{GaiaXEntity: GaiaXEntity{CredentialSubjectShape: CredentialSubjectShape{ID: companyCS.ID, Type: "gx:LegalPerson"}}}}},
@@ -237,6 +350,15 @@ func TestDataProduct(t *testing.T) {
 			OwnedBy: []gxTypes.LegalPerson{{Participant: gxTypes.Participant{GaiaXEntity: gxTypes.GaiaXEntity{CredentialSubjectShape: vc.CredentialSubjectShape{ID: companyCS.ID, Type: "gx:LegalPerson"}}}}}, //should be ISP
 			// again one empty gx:Address to fill later
 			Location: make([]gxTypes.Address, 1),
+			EnergyUsageEfficiency: &gxTypes.EnergyUsageEfficiency{
+				CredentialSubjectShape: vc.CredentialSubjectShape{ID: EnergyUsageCS.ID},
+			},
+			EnergyMix: []gxTypes.EnergyMix{{
+				CredentialSubjectShape: vc.CredentialSubjectShape{ID: EnergyMixCS.ID},
+			}},
+			WaterUsageEffectiveness: &gxTypes.WaterUsageEffectiveness{
+				CredentialSubjectShape: vc.CredentialSubjectShape{ID: WaterUsageCS.ID},
+			},
 		},
 	}
 
@@ -1290,6 +1412,33 @@ func TestDataProduct(t *testing.T) {
 	}
 	vp.AddEnvelopedVC(DataProtectionRegulationMeasuresVC.GetOriginalJWS())
 
+	// ___________________________________ criteria ___________________________________
+	// The Provider shall provide transparency on the environmental impact of the Service Offering provided
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/docs/labelling-criteria.md#criterion-p611
+	// https://docs.gaia-x.eu/policy-rules-committee/compliance-document/24.11/criteria_cloud_services/#P6.1.1
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/src/vp-validation/filter/service-offering-is-sustainable.filter.ts
+
+	EnvironmentalImpactReportVC, _ := vc.NewEmptyVerifiableCredentialV2(
+		vc.WithVCID(idprefix+"EnvironmentalImpactReport"),
+		vc.WithValidFromNow(),
+		vc.WithAdditionalTypes("gx:EnvironmentalImpactReport"),
+		vc.WithIssuer(issuer),
+		vc.WithGaiaXContext())
+
+	EnvironmentalImpactReport := gxTypes.LegalDocument{
+		URL: vc.WithAnyURI("https://www.posedio.com/EnvironmentalImpactReport"),
+	}
+	EnvironmentalImpactReport.ID = EnvironmentalImpactReportVC.ID + "#cs"
+	err = EnvironmentalImpactReportVC.AddToCredentialSubject(EnvironmentalImpactReport)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = connector.SelfSign(EnvironmentalImpactReportVC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	vp.AddEnvelopedVC(EnvironmentalImpactReportVC.GetOriginalJWS())
+
 	////////////////////
 	// Service Offering
 	///////////////////
@@ -1321,6 +1470,15 @@ func TestDataProduct(t *testing.T) {
 		},
 	}
 	serviceOffering.DescribedBy.Type = "gx:DataProductDescription"
+
+	var usagePolicies []gxTypes.AccessUsagePolicy
+
+	usagePolicies = append(usagePolicies, gxTypes.AccessUsagePolicy{
+		PolicyLanguage: "ODRL",
+		PolicyDocument: "[{\"@context\":\"http://www.w3.org/ns/engine.jsonld\",\"@type\":\"Offer\",\"assignee\":\"did:web:did.dumss.me\",\"assigner\":\"http://example.com/org:616\",\"permission\":[{\"action\":\"distribute\",\"constraint\":[{\"operator\":\"eq\",\"ovc:credentialSubjectType\":\"gx:VatID\",\"ovc:leftOperand\":\"$.credentialSubject.gx:vatID\",\"rightOperand\":\"ATU75917607\"}]}],\"target\":\"http://127.0.0.1:8090/download/test.json?versionID=1117904953295031569\",\"uid\":\"http://what.example.com/policy:6163\"}]",
+	})
+
+	serviceOffering.ServicePolicy = usagePolicies
 
 	serviceOffering.AddResourceURI(datacenterCS.ID)
 	serviceOffering.AddResourceURI(pointOfPresenceCS.ID)
@@ -1356,6 +1514,7 @@ func TestDataProduct(t *testing.T) {
 	serviceOffering.AddLegalDocumentURI(UserDocumentationMaintenance.ID)
 	serviceOffering.AddLegalDocumentURI(ServiceAgreementOfferCS.ID)
 	serviceOffering.AddLegalDocumentURI(DataProtectionRegulationMeasuresCS.ID)
+	serviceOffering.AddLegalDocumentURI(EnvironmentalImpactReport.ID)
 
 	serviceOffering.ProvidedBy.ID = companyCS.ID
 	serviceOffering.ProviderContactInformation.ID = providerContactInformation.ID
