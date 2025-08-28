@@ -5,6 +5,7 @@ go 1.24
 require (
 	github.com/dgraph-io/ristretto/v2 v2.2.0
 	github.com/go-playground/validator/v10 v10.27.0
+	github.com/go-viper/mapstructure/v2 v2.4.0
 	github.com/goccy/go-json v0.10.5
 	github.com/gowebpki/jcs v1.0.1
 	github.com/hashicorp/go-retryablehttp v0.7.8

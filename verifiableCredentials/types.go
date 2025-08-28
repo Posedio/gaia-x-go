@@ -14,8 +14,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/hashicorp/go-retryablehttp"
-	"github.com/lestrrat-go/jwx/v2/jwa"
 	"io"
 	"log"
 	"net/http"
@@ -23,6 +21,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
+	"github.com/lestrrat-go/jwx/v2/jwa"
 
 	"github.com/Posedio/gaia-x-go/did"
 	"github.com/go-playground/validator/v10"
@@ -53,6 +54,36 @@ var SecuritySuitesJWS2020 = Namespace{
 	URL:       SecuritySuitesJWS2020Url,
 }
 
+const GXISOTimeFormat = "2006-01-02T15:04:05.999-07:00"
+
+type JTime struct {
+	time.Time
+}
+
+func (t JTime) MarshalJSON() ([]byte, error) {
+	s := fmt.Sprintf("\"%s\"", t.Format(GXISOTimeFormat))
+	h := strings.Split(s, ".")
+	h1 := strings.Split(h[1], "+")
+	if len(h1[0]) != 3 {
+		s = h[0] + "." + h1[0] + "0" + "+" + h1[1]
+		s = fmt.Sprintf("\"%s\"", s)
+	}
+	return []byte(s), nil
+}
+
+func (t *JTime) UnmarshalJSON(data []byte) error {
+	s := strings.Trim(string(data), "\"")
+	ti, err := time.Parse(GXISOTimeFormat, s)
+	if err != nil {
+		ti, err = time.Parse("2006-01-02T15:04:05.999Z07:00", s)
+		if err != nil {
+			return err
+		}
+	}
+	t.Time = ti
+	return nil
+}
+
 // VerifiablePresentation implements the shape of a verifiable presentation as defined in: https://www.w3.org/TR/vc-data-model/#presentations
 // since Gaia-X has not defined a proof method yet, this is still open
 type VerifiablePresentation struct {
@@ -62,8 +93,8 @@ type VerifiablePresentation struct {
 	VerifiableCredential []*VerifiableCredential `json:"verifiableCredential" validate:"required"`
 	Proof                *Proofs                 `json:"proof,omitempty"`                                //non-standard-compliant
 	Issuer               string                  `json:"issuer,omitempty,omitzero" validate:"omitempty"` //non-standard-compliant
-	ValidFrom            time.Time               `json:"validFrom,omitzero" validate:"omitempty"`        //non-standard-compliant
-	ValidUntil           time.Time               `json:"validUntil,omitzero" validate:"omitempty"`       //non-standard-compliant
+	ValidFrom            JTime                   `json:"validFrom,omitzero" validate:"omitempty"`        //non-standard-compliant
+	ValidUntil           JTime                   `json:"validUntil,omitzero" validate:"omitempty"`       //non-standard-compliant
 	Holder               any                     `json:"holder,omitempty,omitzero" validate:"omitempty"`
 	signature            *JWSSignature
 	decodedCredentials   []*VerifiableCredential
@@ -155,9 +186,15 @@ func (vp *VerifiablePresentation) AddEnvelopedVC(jws []byte) {
 }
 
 func (vp *VerifiablePresentation) DecodeEnvelopedCredentials() ([]*VerifiableCredential, error) {
-	if vp.decodedCredentials == nil {
-		vp.decodedCredentials = make([]*VerifiableCredential, len(vp.VerifiableCredential))
+
+	/* TODO caching
+	if len(vp.VerifiableCredential) == len(vp.decodedCredentials) {
+		return vp.decodedCredentials, nil
 	}
+
+
+	*/
+	vp.decodedCredentials = make([]*VerifiableCredential, len(vp.VerifiableCredential))
 	for i, vc := range vp.VerifiableCredential {
 		v := new(VerifiableCredential)
 		var err error
@@ -663,7 +700,7 @@ func WithVCID(id string) VerifiableCredentialOption {
 func WithValidFromNow() VerifiableCredentialOption {
 	return &baseVCOption{
 		f: func(vc *VerifiableCredential) error {
-			vc.ValidFrom = time.Now()
+			vc.ValidFrom = JTime{time.Now()}
 			return nil
 		},
 	}
@@ -675,7 +712,7 @@ func WithValidUntil(t time.Time) VerifiableCredentialOption {
 			if !vc.ValidUntil.IsZero() {
 				return errors.New("validUntil already set")
 			}
-			vc.ValidUntil = t
+			vc.ValidUntil = JTime{t}
 			return nil
 		},
 	}
@@ -687,7 +724,7 @@ func WithValidFor(t time.Duration) VerifiableCredentialOption {
 			if !vc.ValidUntil.IsZero() {
 				return errors.New("validUntil already set")
 			}
-			vc.ValidUntil = time.Now().Add(t)
+			vc.ValidUntil = JTime{time.Now().Add(t)}
 			return nil
 		},
 	}
@@ -744,8 +781,8 @@ type VerifiableCredential struct {
 	Description       string            `json:"description,omitempty" validate:"omitempty"`
 	Issuer            string            `json:"issuer,omitzero" validate:"omitempty"`
 	CredentialSubject CredentialSubject `json:"credentialSubject,omitempty,omitzero" validate:"omitempty"`
-	ValidFrom         time.Time         `json:"validFrom,omitzero" validate:"omitempty"`
-	ValidUntil        time.Time         `json:"validUntil,omitzero" validate:"omitempty"`
+	ValidFrom         JTime             `json:"validFrom,omitzero" validate:"omitempty"`
+	ValidUntil        JTime             `json:"validUntil,omitzero" validate:"omitempty"`
 	CredentialsStatus any               `json:"credentialStatus,omitempty" validate:"omitempty"`
 	CredentialSchema  any               `json:"credentialSchema,omitempty" validate:"omitempty"`
 	RefreshService    any               `json:"refreshService,omitempty" validate:"omitempty"`

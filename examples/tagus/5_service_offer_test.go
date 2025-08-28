@@ -6,10 +6,11 @@ Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 package loire
 
 import (
+	"testing"
+
 	"github.com/Posedio/gaia-x-go/compliance"
 	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"github.com/lestrrat-go/jwx/v2/jwa"
-	"testing"
 )
 
 func TestCompliantServiceOffering(t *testing.T) {
@@ -107,6 +108,13 @@ func TestCompliantServiceOffering(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	labelcredential, err := compliance.ValidateGXCompliance(vp, offering)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(labelcredential)
 
 	t.Log(vp)
 

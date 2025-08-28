@@ -8,6 +8,7 @@ package gxTypes
 
 import (
 	"encoding/json"
+
 	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
 )
 
@@ -52,12 +53,12 @@ func (tc *TermsAndConditions2210Struct) ToMap() (map[string]interface{}, error) 
 
 // ComplianceCredentialSubject implements the shape as returned by the compliance service as compliance credentials
 type ComplianceCredentialSubject struct {
-	Type                     string `json:"type"`
-	ID                       string `json:"id"`
-	GxIntegrity              string `json:"gx:integrity"`
-	GxIntegrityNormalization string `json:"gx:integrityNormalization"`
-	GxVersion                string `json:"gx:version"`
-	GxType                   string `json:"gx:type"`
+	Type                     string `json:"type" mapstructure:"type"`
+	ID                       string `json:"id" mapstructure:"id"`
+	GxIntegrity              string `json:"gx:integrity" mapstructure:"gx:integrity"`
+	GxIntegrityNormalization string `json:"gx:integrityNormalization" mapstructure:"gx:integrityNormalization"`
+	GxVersion                string `json:"gx:version" mapstructure:"gx:version"`
+	GxType                   string `json:"gx:type" mapstructure:"gx:type"`
 }
 
 // NewComplianceCredentialSubjectFormMap marshals a map to ComplianceCredentialSubject or returns an error

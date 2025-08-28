@@ -7,8 +7,9 @@ Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 package gxTypes
 
 import (
-	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"time"
+
+	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
 )
 
 type URI string
@@ -1415,24 +1416,27 @@ type Issuer struct {
 
 // LabelCredential represents a Gaia-X conformity label level
 type LabelCredential struct {
+	vc.CredentialSubjectShape
 	// Abbreviated conformity level of the label credential (SC, L1, L2, ...)
-	LabelLevel string `json:"gx:labelLevel"`
+	LabelLevel string `mapstructure:"gx:labelLevel" json:"gx:labelLevel"`
 	// Gaia-X compliance engine version that delivered a label credential
-	EngineVersion string `json:"gx:engineVersion"`
+	EngineVersion string `json:"gx:engineVersion" mapstructure:"gx:engineVersion"`
 	// Gaia-X compliance document version from which the validated criteria originate
-	RulesVersion string `json:"gx:rulesVersion"`
+	RulesVersion string `json:"gx:rulesVersion" mapstructure:"rulesVersion"`
 	// Gaia-X compliance document version from which the validated criteria originate
-	ValidatedCriteria []string `json:"gx:validatedCriteria"`
+	ValidatedCriteria []string `json:"gx:validatedCriteria" mapstructure:"gx:validatedCriteria"`
 	// Credentials validated by the compliance engine and linked to a label credential
-	CompliantCredentials []CompliantCredential `json:"gx:compliantCredentials"`
+	CompliantCredentials []CompliantCredential `json:"gx:compliantCredentials" mapstructure:"gx:compliantCredentials"`
 }
 
 // CompliantCredential represents a snapshot of a credential deemed compliant
 type CompliantCredential struct {
 	// Type of the compliant credential
-	CredentialType string `json:"gx:credentialType"`
+	CredentialType string `json:"type" mapstructure:"type"`
 	// Subresource Integrity hash of the verifiable credential
-	DigestSRI string `json:"cred:digestSRI"`
+	DigestSRI string `json:"gx:digestSRI" mapstructure:"gx:digestSRI"`
+	// id
+	Id string `json:"id" mapstructure:"id"`
 }
 
 // DataExchangeComponent represents a service/resource used to make a data resource available

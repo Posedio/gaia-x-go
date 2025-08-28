@@ -12,13 +12,14 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"github.com/Posedio/gaia-x-go/did"
-	"github.com/lestrrat-go/jwx/v2/jws"
 	"io"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/Posedio/gaia-x-go/did"
+	"github.com/lestrrat-go/jwx/v2/jws"
 )
 
 func VerifyCertChain(url string) (*x509.Certificate, error) {
@@ -227,4 +228,8 @@ func toMap(obj interface{}) (map[string]interface{}, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func TimeNow() JTime {
+	return JTime{time.Now()}
 }

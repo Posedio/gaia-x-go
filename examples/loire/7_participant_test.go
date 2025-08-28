@@ -1,12 +1,13 @@
 package loire
 
 import (
+	"testing"
+	"time"
+
 	"github.com/Posedio/gaia-x-go/compliance"
 	"github.com/Posedio/gaia-x-go/gxTypes"
 	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"github.com/lestrrat-go/jwx/v2/jwa"
-	"testing"
-	"time"
 )
 
 func TestLegalPersonDirect(t *testing.T) {
@@ -18,6 +19,7 @@ func TestLegalPersonDirect(t *testing.T) {
 	// instantiate a Compliance Connector for the Loire release
 	connector, err := compliance.NewComplianceConnectorV2(
 		compliance.Endpoints{Compliance: compliance.V2Staging, Notary: compliance.DeltaDaoV2Notary},
+
 		"loire",
 		&compliance.IssuerSetting{
 			Key:                key,
@@ -44,6 +46,8 @@ func TestLegalPersonDirect(t *testing.T) {
 	}
 
 	t.Log(LRNVC)
+
+	t.Log(string(LRNVC.GetOriginalJWS()))
 
 	// verify the credential (not needed but recommended)
 	err = LRNVC.Verify(vc.IssuerMatch(), vc.IsGaiaXTrustedIssuer(compliance.TSystemRegistryV2.TrustedIssuer()))
@@ -200,6 +204,14 @@ func TestLegalPersonDirect(t *testing.T) {
 	t.Log(offering)
 	t.Log(string(offering.GetOriginalJWS()))
 
+	labelcredential, err := compliance.ValidateGXCompliance(vp, offering)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(labelcredential.(gxTypes.LabelCredential).EngineVersion)
+	t.Log(labelcredential.(gxTypes.LabelCredential).ValidatedCriteria)
+
 	vp.AddEnvelopedVC(offering.GetOriginalJWS())
 
 	credentials, err := vp.DecodeEnvelopedCredentials()
@@ -207,5 +219,11 @@ func TestLegalPersonDirect(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Log(credentials)
+
+	err = connector.SelfSignPresentation(vp, 365*24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(string(vp.GetOriginalJWS()))
 
 }

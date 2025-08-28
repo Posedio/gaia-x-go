@@ -7,9 +7,10 @@ Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 package loire
 
 import (
-	"github.com/lestrrat-go/jwx/v2/jwa"
 	"testing"
 	"time"
+
+	"github.com/lestrrat-go/jwx/v2/jwa"
 
 	"github.com/Posedio/gaia-x-go/compliance"
 	"github.com/Posedio/gaia-x-go/gxTypes"
@@ -1513,7 +1514,7 @@ func TestComplianceLevel1(t *testing.T) {
 
 	ServiceOfferingVC.ID = idprefix + "offeringVC"
 
-	ServiceOfferingVC.ValidFrom = time.Now()
+	ServiceOfferingVC.ValidFrom = vc.TimeNow()
 
 	err = connector.SelfSign(ServiceOfferingVC)
 	if err != nil {
@@ -1533,6 +1534,14 @@ func TestComplianceLevel1(t *testing.T) {
 	t.Log(offering)
 
 	t.Log(string(vp.GetOriginalJWS()))
+
+	labelcredential, err := compliance.ValidateGXCompliance(vp, offering)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(labelcredential.(gxTypes.LabelCredential).EngineVersion)
+	t.Log(labelcredential.(gxTypes.LabelCredential).ValidatedCriteria)
 
 	// decode the verifiable presentation (only copy of it)
 	credentials, err := vp.DecodeEnvelopedCredentials()

@@ -11,11 +11,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Posedio/gaia-x-go/gxTypes"
 	"io"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/Posedio/gaia-x-go/gxTypes"
 
 	"github.com/Posedio/gaia-x-go/did"
 	vcTypes "github.com/Posedio/gaia-x-go/verifiableCredentials"
@@ -362,7 +363,7 @@ func (c *LoireCompliance) SignServiceOfferingWithContext(ctx context.Context, op
 	}
 
 	vp.Issuer = c.issuer.Issuer
-	vp.ValidFrom = time.Now()
+	vp.ValidFrom.Time = time.Now()
 
 	j, err := vp.ToJson()
 	if err != nil {

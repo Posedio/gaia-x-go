@@ -8,12 +8,13 @@ package loire
 
 import (
 	"context"
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/Posedio/gaia-x-go/compliance"
 	"github.com/Posedio/gaia-x-go/gxTypes"
@@ -428,6 +429,7 @@ func TestCompliance(t *testing.T) {
 	// ___________________________________ criteria ___________________________________
 	// The Provider shall explain how information about subcontractors and related Customer Data localization will be
 	// communicated.
+	// not mandatory after 2.9.0 compliance server version!
 	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/docs/labelling-criteria.md#criterion-p126
 	// https://docs.gaia-x.eu/policy-rules-committee/compliance-document/24.11/criteria_cloud_services/#P1.2.6
 	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/src/vp-validation/filter/service-offering-has-subcontractor-details.filter.ts
@@ -1470,7 +1472,7 @@ func TestCompliance(t *testing.T) {
 
 	ServiceOfferingVC.ID = idprefix + "offeringVC"
 
-	ServiceOfferingVC.ValidFrom = time.Now()
+	ServiceOfferingVC.ValidFrom = vc.TimeNow()
 
 	err = connector.SelfSign(ServiceOfferingVC)
 	if err != nil {
@@ -1492,6 +1494,14 @@ func TestCompliance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	labelcredential, err := compliance.ValidateGXCompliance(vp, offering)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log(labelcredential.(gxTypes.LabelCredential).EngineVersion)
+	t.Log(labelcredential.(gxTypes.LabelCredential).ValidatedCriteria)
 
 	t.Log(string(vpS.GetOriginalJWS()))
 
