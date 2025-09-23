@@ -74,7 +74,7 @@ func ValidateGXCompliance(vp *verifiableCredentials.VerifiablePresentation, comp
 					return nil, err
 				}
 				if "sha256-"+hex != subject.GxIntegrity {
-					return nil, fmt.Errorf("compliant credential hash does not match digest %v for vc", subject.ID)
+					return nil, fmt.Errorf("compliant credential hash does not match digest %v for vc, calculated %v, given: %v", subject.ID, "sha256-"+hex, subject.GxIntegrity)
 				}
 			} else {
 				return nil, fmt.Errorf("verifiable credential with id %v not found", subject.ID)

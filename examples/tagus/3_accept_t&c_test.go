@@ -7,9 +7,10 @@ Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 package loire
 
 import (
+	"testing"
+
 	"github.com/Posedio/gaia-x-go/compliance"
 	"github.com/lestrrat-go/jwx/v2/jwa"
-	"testing"
 )
 
 func TestSignTermsAndConditions(t *testing.T) {
@@ -31,7 +32,7 @@ func TestSignTermsAndConditions(t *testing.T) {
 			Key:                key,
 			Alg:                jwa.PS256,
 			Issuer:             "did:web:did.dumss.me",
-			VerificationMethod: "did:web:did.dumss.me#v1-2025",
+			VerificationMethod: "did:web:did.dumss.me#v2-2025",
 		},
 	)
 	if err != nil {

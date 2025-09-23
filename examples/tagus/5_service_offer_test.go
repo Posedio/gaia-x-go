@@ -27,7 +27,7 @@ func TestCompliantServiceOffering(t *testing.T) {
 			Key:                key,
 			Alg:                jwa.PS256,
 			Issuer:             "did:web:did.dumss.me",
-			VerificationMethod: "did:web:did.dumss.me#v1-2025",
+			VerificationMethod: "did:web:did.dumss.me#v2-2025",
 		},
 	)
 	if err != nil {

@@ -25,7 +25,7 @@ func TestLegalPersonDirect(t *testing.T) {
 			Key:                key,
 			Alg:                jwa.PS256,
 			Issuer:             issuer,
-			VerificationMethod: "did:web:did.dumss.me#v1-2025",
+			VerificationMethod: "did:web:did.dumss.me#v2-2025",
 		})
 	if err != nil {
 		t.Fatal(err)
@@ -193,6 +193,8 @@ func TestLegalPersonDirect(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	t.Log(string(vp.GetOriginalJWS()))
+
 	offering, _, err := connector.SignServiceOffering(compliance.ServiceOfferingComplianceOptions{
 		Id:                        idprefix + "participant",
 		ServiceOfferingVP:         vp,
@@ -209,8 +211,8 @@ func TestLegalPersonDirect(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log(labelcredential.(gxTypes.LabelCredential).EngineVersion)
-	t.Log(labelcredential.(gxTypes.LabelCredential).ValidatedCriteria)
+	t.Log(labelcredential.(*gxTypes.LabelCredential).EngineVersion)
+	t.Log(labelcredential.(*gxTypes.LabelCredential).ValidatedCriteria)
 
 	vp.AddEnvelopedVC(offering.GetOriginalJWS())
 

@@ -2,16 +2,17 @@ package loire
 
 import (
 	"context"
-	"github.com/Posedio/gaia-x-go/compliance"
-	"github.com/Posedio/gaia-x-go/verifiableCredentials"
-	"github.com/goccy/go-json"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/Posedio/gaia-x-go/compliance"
+	"github.com/Posedio/gaia-x-go/verifiableCredentials"
+	"github.com/goccy/go-json"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 )
 
 // needs rework since the credential helper in the newest version has no field for custom endpoints
@@ -35,7 +36,7 @@ func TestCredentialHelperSignerServer(t *testing.T) {
 	if !ok {
 		t.Fatal("no key in set")
 	}
-	connector, err := compliance.NewComplianceConnector("", "", "loire", key, "did:web:did.dumss.me", "did:web:did.dumss.me#v1-2025")
+	connector, err := compliance.NewComplianceConnector("", "", "loire", key, "did:web:did.dumss.me", "did:web:did.dumss.me#v2-2025")
 	if err != nil {
 		t.Fatal(err)
 	}

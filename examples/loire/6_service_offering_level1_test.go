@@ -31,7 +31,7 @@ func TestComplianceLevel1(t *testing.T) {
 			Key:                key,
 			Alg:                jwa.PS256,
 			Issuer:             issuer,
-			VerificationMethod: "did:web:did.dumss.me#v1-2025",
+			VerificationMethod: "did:web:did.dumss.me#v2-2025",
 		})
 	if err != nil {
 		t.Fatal(err)
@@ -50,7 +50,7 @@ func TestComplianceLevel1(t *testing.T) {
 		t.Fatal(err)
 	}
 	// verify the credential (not needed but recommended)
-	err = LRNVC.Verify(vc.IssuerMatch(), vc.IsGaiaXTrustedIssuer(compliance.ArsysV2Notary.String()))
+	err = LRNVC.Verify(vc.IssuerMatch(), vc.IsGaiaXTrustedIssuer(compliance.TSystemRegistryV2.TrustedIssuer()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1540,8 +1540,8 @@ func TestComplianceLevel1(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log(labelcredential.(gxTypes.LabelCredential).EngineVersion)
-	t.Log(labelcredential.(gxTypes.LabelCredential).ValidatedCriteria)
+	t.Log(labelcredential.(*gxTypes.LabelCredential).EngineVersion)
+	t.Log(labelcredential.(*gxTypes.LabelCredential).ValidatedCriteria)
 
 	// decode the verifiable presentation (only copy of it)
 	credentials, err := vp.DecodeEnvelopedCredentials()

@@ -8,6 +8,7 @@ package verifiableCredentials
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 
 	"github.com/Posedio/gaia-x-go/did"
 	"github.com/go-playground/validator/v10"
@@ -66,7 +68,7 @@ func (t JTime) MarshalJSON() ([]byte, error) {
 	h1 := strings.Split(h[1], "+")
 	if len(h1[0]) != 3 {
 		s = h[0] + "." + h1[0] + "0" + "+" + h1[1]
-		s = fmt.Sprintf("\"%s\"", s)
+		s = fmt.Sprintf("%s", s)
 	}
 	return []byte(s), nil
 }
@@ -908,6 +910,34 @@ func (c *VerifiableCredential) Verify(options ...*verifyOption) error {
 		host, err := c.signature.DID.GetHost()
 		if err != nil {
 			return err
+		}
+
+		certKey, err := jwk.FromRaw(cert.PublicKey)
+		if err != nil {
+			return fmt.Errorf("error on parsing JWK public key: %v", err)
+		}
+
+		certMap, err := certKey.AsMap(context.Background())
+		if err != nil {
+			return err
+		}
+
+		keyMap, err := key.JWK.AsMap(context.Background())
+		if err != nil {
+			return err
+		}
+
+		certN, ok := certMap["n"].([]uint8)
+		if !ok {
+			return errors.New("missing key in certificate")
+		}
+		keyN, ok := keyMap["n"].([]uint8)
+		if !ok {
+			return errors.New("missing key in jwk")
+		}
+
+		if base64.StdEncoding.EncodeToString(certN) != base64.StdEncoding.EncodeToString(keyN) {
+			return errors.New("mismatched public key in certificate and did jwk")
 		}
 
 		if !slices.Contains(cert.DNSNames, host) {
