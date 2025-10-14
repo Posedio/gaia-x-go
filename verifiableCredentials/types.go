@@ -99,7 +99,7 @@ type VerifiablePresentation struct {
 	ValidUntil           JTime                   `json:"validUntil,omitzero" validate:"omitempty"`       //non-standard-compliant
 	Holder               any                     `json:"holder,omitempty,omitzero" validate:"omitempty"`
 	signature            *JWSSignature
-	decodedCredentials   []*VerifiableCredential
+	decodedCredentials   map[string]*VerifiableCredential
 	proc                 *ld.JsonLdProcessor
 	Options              *ld.JsonLdOptions `json:"-"`
 	mux                  sync.Mutex
@@ -196,7 +196,7 @@ func (vp *VerifiablePresentation) DecodeEnvelopedCredentials() ([]*VerifiableCre
 
 
 	*/
-	vp.decodedCredentials = make([]*VerifiableCredential, len(vp.VerifiableCredential))
+	vp.decodedCredentials = make(map[string]*VerifiableCredential, len(vp.VerifiableCredential))
 	for i, vc := range vp.VerifiableCredential {
 		v := new(VerifiableCredential)
 		var err error
@@ -219,9 +219,15 @@ func (vp *VerifiablePresentation) DecodeEnvelopedCredentials() ([]*VerifiableCre
 		if err != nil {
 			return nil, err
 		}
-		vp.decodedCredentials[i] = v
+		vp.decodedCredentials[v.ID] = v
 	}
-	return vp.decodedCredentials, nil
+	list := make([]*VerifiableCredential, len(vp.VerifiableCredential))
+	var i = 0
+	for _, vc := range vp.decodedCredentials {
+		list[i] = vc
+		i++
+	}
+	return list, nil
 }
 
 func (vp *VerifiablePresentation) DecodeCredentialsToResolvedCSMap() (map[string]map[string]interface{}, error) {
@@ -234,7 +240,7 @@ func (vp *VerifiablePresentation) DecodeCredentialsToResolvedCSMap() (map[string
 		}
 	}
 
-	for i, v := range vp.decodedCredentials {
+	for _, v := range vp.decodedCredentials {
 		for _, cs := range v.CredentialSubject.CredentialSubject {
 			var id string
 			var ok bool
@@ -251,7 +257,7 @@ func (vp *VerifiablePresentation) DecodeCredentialsToResolvedCSMap() (map[string
 			} else {
 				id = "" //todo this is a privacy preserving vs how to handle?
 				if v.ID != "" {
-					id = v.ID + "#" + string(rune(i))
+					id = v.ID + "#cs"
 				}
 			}
 			if id != "" {
@@ -275,6 +281,42 @@ func (vp *VerifiablePresentation) DecodeCredentialsToResolvedCSMap() (map[string
 		}
 	}
 	return csMap, nil
+}
+
+func (vp *VerifiablePresentation) GetCredential(id string) (*VerifiableCredential, error) {
+	if vp.decodedCredentials == nil {
+		_, err := vp.DecodeEnvelopedCredentials()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if vc, ok := vp.decodedCredentials[id]; ok {
+		return vc, nil
+	}
+	return nil, errors.New("credential not found")
+}
+
+func (vp *VerifiablePresentation) GetCredentialsWithType(t string) ([]*VerifiableCredential, error) {
+	if vp.decodedCredentials == nil {
+		_, err := vp.DecodeEnvelopedCredentials()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	vcs := make([]*VerifiableCredential, 0)
+
+	for _, vc := range vp.decodedCredentials {
+		for _, ty := range vc.Type.Types {
+			if ty == t {
+				vcs = append(vcs, vc)
+			}
+		}
+	}
+	if len(vcs) == 0 {
+		return nil, errors.New("credential not found")
+	}
+	return vcs, nil
 }
 
 type vcMap struct {
