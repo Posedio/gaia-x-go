@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"github.com/Posedio/gaia-x-go/did"
-	"github.com/lestrrat-go/jwx/v2/jws"
+	"github.com/lestrrat-go/jwx/v3/jws"
 )
 
 func VerifyCertChain(url string) (*x509.Certificate, error) {
@@ -79,7 +79,13 @@ func VerifyCertChain(url string) (*x509.Certificate, error) {
 		Roots: roots,
 	})
 	if err != nil {
-		_, err = cert.Verify(x509.VerifyOptions{})
+		systemPool, err := x509.SystemCertPool() //todo add option to enforce gx only trust anchors
+		if err != nil {
+			return nil, err
+		}
+		_, err = cert.Verify(x509.VerifyOptions{
+			Roots: systemPool,
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -132,7 +138,7 @@ func VPFROMJWT(token []byte) (*VerifiablePresentation, error) {
 
 }
 
-func VerifyJWS(token []byte) (*did.DID, *JWTHeader, []byte, error) {
+func VerifyJWS(token []byte) (*did.DID, jws.Headers, []byte, error) {
 	parse, err := jws.Parse(token)
 	if err != nil {
 		return nil, nil, nil, err
@@ -142,20 +148,34 @@ func VerifyJWS(token []byte) (*did.DID, *JWTHeader, []byte, error) {
 	var resolveSigErr error
 
 	for _, signature := range signatures {
-		marshalJSON, err := signature.ProtectedHeaders().MarshalJSON()
+		/*
+			marshalJSON, err := signature.ProtectedHeaders().MarshalJSON()
+			if err != nil {
+				resolveSigErr = errors.Join(resolveSigErr, err)
+				continue
+			}
+
+
+			header := &JWTHeader{}
+			err = json.Unmarshal(marshalJSON, header)
+			if err != nil {
+				resolveSigErr = errors.Join(resolveSigErr, err)
+				continue
+			}
+
+		*/
+
+		header := signature.ProtectedHeaders()
+
+		var issuer string
+
+		err := header.Get("iss", &issuer)
 		if err != nil {
 			resolveSigErr = errors.Join(resolveSigErr, err)
 			continue
 		}
 
-		header := &JWTHeader{}
-		err = json.Unmarshal(marshalJSON, header)
-		if err != nil {
-			resolveSigErr = errors.Join(resolveSigErr, err)
-			continue
-		}
-
-		didweb, err := did.ResolveDIDWeb(header.Issuer)
+		didweb, err := did.ResolveDIDWeb(issuer)
 		if err != nil {
 			resolveSigErr = errors.Join(resolveSigErr, err)
 			continue
@@ -166,17 +186,35 @@ func VerifyJWS(token []byte) (*did.DID, *JWTHeader, []byte, error) {
 			resolveSigErr = errors.Join(resolveSigErr, err)
 			continue
 		}
-		key, k := didweb.Keys[header.KID]
-		if !k {
-			resolveSigErr = errors.Join(resolveSigErr, fmt.Errorf("key %v not in did web %v", header.KID, header.Issuer))
-			continue
-		}
-		if key.JWK.Algorithm() != header.Algorithm {
-			resolveSigErr = errors.Join(resolveSigErr, fmt.Errorf("alg in jws %v does not match alg in did %v", header.Algorithm, key.JWK.Algorithm()))
+
+		kid, ok := header.KeyID()
+		if !ok {
+			resolveSigErr = errors.Join(resolveSigErr, errors.New("key has no kid"))
 			continue
 		}
 
-		payload, err := jws.Verify(token, jws.WithKey(header.Algorithm, key.JWK))
+		key, k := didweb.Keys[kid]
+		if !k {
+			resolveSigErr = errors.Join(resolveSigErr, fmt.Errorf("key %v not in did web %v", kid, issuer))
+			continue
+		}
+		alg, ok := key.JWK.Algorithm()
+		if !ok {
+			resolveSigErr = errors.Join(resolveSigErr, fmt.Errorf("key %v does not have an algorithm", kid))
+			continue
+		}
+
+		hAlg, ok := header.Algorithm()
+		if !ok {
+			resolveSigErr = errors.Join(resolveSigErr, errors.New("key has no algorithm"))
+		}
+
+		if alg != hAlg {
+			resolveSigErr = errors.Join(resolveSigErr, fmt.Errorf("alg in jws %v does not match alg in did %v", hAlg, alg))
+			continue
+		}
+
+		payload, err := jws.Verify(token, jws.WithKey(hAlg, key.JWK))
 		if err != nil {
 			resolveSigErr = errors.Join(resolveSigErr, err)
 			continue
@@ -231,5 +269,9 @@ func toMap(obj interface{}) (map[string]interface{}, error) {
 }
 
 func TimeNow() JTime {
-	return JTime{time.Now()}
+	tn := time.Now()
+	jt := JTime{
+		InternalTime: tn,
+	}
+	return jt
 }

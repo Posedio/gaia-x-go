@@ -8,7 +8,7 @@ package verifiableCredentials
 
 import (
 	"bytes"
-	"context"
+
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -24,13 +24,13 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 
 	"github.com/Posedio/gaia-x-go/did"
 	"github.com/go-playground/validator/v10"
 	"github.com/gowebpki/jcs"
-	"github.com/lestrrat-go/jwx/v2/jws"
+	"github.com/lestrrat-go/jwx/v3/jws"
 	"github.com/piprate/json-gold/ld"
 )
 
@@ -59,22 +59,28 @@ var SecuritySuitesJWS2020 = Namespace{
 const GXISOTimeFormat = "2006-01-02T15:04:05.999-07:00"
 
 type JTime struct {
-	time.Time
+	OriginalTime string
+	InternalTime time.Time
 }
 
 func (t JTime) MarshalJSON() ([]byte, error) {
-	s := fmt.Sprintf("\"%s\"", t.Format(GXISOTimeFormat))
-	h := strings.Split(s, ".")
-	h1 := strings.Split(h[1], "+")
-	if len(h1[0]) != 3 {
-		s = h[0] + "." + h1[0] + "0" + "+" + h1[1]
-		s = fmt.Sprintf("%s", s)
+	if t.OriginalTime != "" {
+		if strings.Contains(t.OriginalTime, "\"") {
+			return []byte(t.OriginalTime), nil
+		}
+		return []byte(fmt.Sprintf("\"%s\"", t.OriginalTime)), nil
+
+	} else if !t.InternalTime.IsZero() {
+		return []byte(fmt.Sprintf("\"%s\"", t.InternalTime.Format(GXISOTimeFormat))), nil
 	}
-	return []byte(s), nil
+
+	return nil, nil
+
 }
 
 func (t *JTime) UnmarshalJSON(data []byte) error {
 	s := strings.Trim(string(data), "\"")
+
 	ti, err := time.Parse(GXISOTimeFormat, s)
 	if err != nil {
 		ti, err = time.Parse("2006-01-02T15:04:05.999Z07:00", s)
@@ -82,7 +88,8 @@ func (t *JTime) UnmarshalJSON(data []byte) error {
 			return err
 		}
 	}
-	t.Time = ti
+	t.InternalTime = ti
+	t.OriginalTime = string(data)
 	return nil
 }
 
@@ -93,10 +100,10 @@ type VerifiablePresentation struct {
 	Id                   string                  `json:"id,omitempty,omitzero"`
 	Type                 string                  `json:"type" validate:"required"`
 	VerifiableCredential []*VerifiableCredential `json:"verifiableCredential" validate:"required"`
-	Proof                *Proofs                 `json:"proof,omitempty"`                                //non-standard-compliant
-	Issuer               string                  `json:"issuer,omitempty,omitzero" validate:"omitempty"` //non-standard-compliant
-	ValidFrom            JTime                   `json:"validFrom,omitzero" validate:"omitempty"`        //non-standard-compliant
-	ValidUntil           JTime                   `json:"validUntil,omitzero" validate:"omitempty"`       //non-standard-compliant
+	Proof                *Proofs                 `json:"proof,omitempty"`                                    //non-standard-compliant
+	Issuer               string                  `json:"issuer,omitempty,omitzero" validate:"omitempty"`     //non-standard-compliant
+	ValidFrom            JTime                   `json:"validFrom,omitzero,omitempty" validate:"omitempty"`  //non-standard-compliant
+	ValidUntil           JTime                   `json:"validUntil,omitzero,omitempty" validate:"omitempty"` //non-standard-compliant
 	Holder               any                     `json:"holder,omitempty,omitzero" validate:"omitempty"`
 	signature            *JWSSignature
 	decodedCredentials   map[string]*VerifiableCredential
@@ -585,12 +592,22 @@ func (vp *VerifiablePresentation) Verify(options ...*verifyOption) error {
 	}
 	vp.signature.DID = web
 
-	key, k := vp.signature.DID.Keys[vp.signature.JWTHeader.KID]
+	kid, ok := vp.signature.JWTHeader.KeyID()
+	if !ok {
+		return fmt.Errorf("jwt header key ID not present")
+	}
+
+	key, k := vp.signature.DID.Keys[kid]
 	if !k {
 		return errors.New("the KID from the JWT header does not match any key from the issuer DID")
 	}
 
-	cert, err := VerifyCertChain(key.JWK.X509URL())
+	url, ok := key.JWK.X509URL()
+	if !ok {
+		return errors.New("currently only jwk keys with X5U are supported")
+	}
+
+	cert, err := VerifyCertChain(url)
 	if err != nil {
 		return err
 	}
@@ -603,43 +620,106 @@ func (vp *VerifiablePresentation) Verify(options ...*verifyOption) error {
 		return fmt.Errorf("host %v not in the list of allowed DNS Names %v of the provided DID x509 certificate", host, cert.DNSNames)
 	}
 
-	_, err = jws.Verify(vp.signature.OriginalJWT, jws.WithKey(vp.signature.JWTHeader.Algorithm, key.JWK))
+	certKey, err := jwk.Import(cert.PublicKey)
+	if err != nil {
+		return fmt.Errorf("error on parsing JWK public key: %v", err)
+	}
+
+	var certN []uint8
+
+	err = certKey.Get("n", &certN)
+	if err != nil {
+		return err
+	}
+
+	var keyN []uint8
+	err = key.JWK.Get("n", &keyN)
+	if err != nil {
+		return err
+	}
+
+	if base64.StdEncoding.EncodeToString(certN) != base64.StdEncoding.EncodeToString(keyN) {
+		return errors.New("mismatched public key in certificate and did jwk")
+	}
+
+	if !slices.Contains(cert.DNSNames, host) {
+		return fmt.Errorf("host %v not in the list of allowed DNS Names %v of the provided DID x509 certificate", host, cert.DNSNames)
+	}
+
+	alg, ok := vp.signature.JWTHeader.Algorithm()
+	if !ok {
+		return fmt.Errorf("jwt header algorithm not present")
+	}
+
+	halg, ok := vp.signature.JWTHeader.Algorithm()
+	if !ok {
+		return errors.New("the JWK key needs to specify the algorithm")
+	}
+
+	if alg != halg {
+		return fmt.Errorf("alg in jws %v does not match alg in did %v", halg, alg)
+	}
+
+	_, err = jws.Verify(vp.signature.OriginalJWT, jws.WithKey(alg, key.JWK))
 	if err != nil {
 		return fmt.Errorf("verifiablePresentation signature is invalid: %w", err)
 	}
 
-	if !(vp.signature.JWTHeader.TYP == JWTType || vp.signature.JWTHeader.TYP == "vp+jwt") {
+	typ, ok := vp.signature.JWTHeader.Type()
+	if !ok {
+		return fmt.Errorf("jwt header type not present")
+	}
+
+	if !(typ == JWTType || typ == "vp+jwt") {
 		return fmt.Errorf("verifiablePresentation signature header does not have the correct type of JWT")
 	}
 
-	if !(vp.signature.JWTHeader.CTY == JWTCTY || vp.signature.JWTHeader.CTY == "vp") {
+	cty, ok := vp.signature.JWTHeader.ContentType()
+	if !ok {
+		return fmt.Errorf("jwt header cty not present")
+	}
+
+	if !(cty == JWTCTY || cty == "vp") {
 		return fmt.Errorf("verifiablePresentation signature header does not have the correct cty")
 	}
 
 	now := time.Now()
 
-	if now.UnixMilli() < vp.signature.JWTHeader.IAT.UnixMilli() && vp.signature.JWTHeader.EXP.UnixMilli() > 0 {
-		return fmt.Errorf("verifiablePresentation issuance date is in the future")
+	var iat float64
+	var exp float64
+
+	err = vp.signature.JWTHeader.Get("iat", &iat)
+	if err == nil {
+		if now.UnixMilli() < int64(iat) && iat > 0 {
+			return fmt.Errorf("verifiablePresentation issuance date is in the future")
+		}
 	}
-	if now.UnixMilli() > vp.signature.JWTHeader.EXP.UnixMilli() && vp.signature.JWTHeader.EXP.UnixMilli() > 0 {
-		return fmt.Errorf("verifiablePresentation not valid anymore")
+	err = vp.signature.JWTHeader.Get("exp", &exp)
+	if err == nil {
+		if now.UnixMilli() > int64(exp) && exp > 0 {
+			return fmt.Errorf("verifiablePresentation not valid anymore")
+		}
 	}
 
-	if !vp.ValidUntil.IsZero() {
-		if !vp.ValidUntil.After(now) {
+	if !vp.ValidUntil.InternalTime.IsZero() {
+		if !vp.ValidUntil.InternalTime.After(now) {
 			return fmt.Errorf("verifiablePresentation is expired")
 		}
 	}
 
-	if !vp.ValidFrom.IsZero() {
-		if vp.ValidFrom.After(now) {
+	if !vp.ValidFrom.InternalTime.IsZero() {
+		if vp.ValidFrom.InternalTime.After(now) {
 			return fmt.Errorf("verifiablePresentation is not valid yet")
 		}
 	}
 
 	if vO.issuerMatch {
-		if vp.Issuer != vp.signature.JWTHeader.Issuer {
-			log.Printf("verifiablePresentation is not valid %v %v", vp.Issuer, vp.signature.JWTHeader.Issuer)
+		var issuer string
+		err := vp.signature.JWTHeader.Get("iss", &issuer)
+		if err != nil {
+			return err
+		}
+		if vp.Issuer != issuer {
 			return fmt.Errorf("verifialePresentation issuer does not match JWT issuer")
 		}
 	}
@@ -744,7 +824,10 @@ func WithVCID(id string) VerifiableCredentialOption {
 func WithValidFromNow() VerifiableCredentialOption {
 	return &baseVCOption{
 		f: func(vc *VerifiableCredential) error {
-			vc.ValidFrom = JTime{time.Now()}
+			it := time.Now()
+			vc.ValidFrom = JTime{
+				InternalTime: it,
+			}
 			return nil
 		},
 	}
@@ -753,10 +836,12 @@ func WithValidFromNow() VerifiableCredentialOption {
 func WithValidUntil(t time.Time) VerifiableCredentialOption {
 	return &baseVCOption{
 		f: func(vc *VerifiableCredential) error {
-			if !vc.ValidUntil.IsZero() {
+			if !vc.ValidUntil.InternalTime.IsZero() {
 				return errors.New("validUntil already set")
 			}
-			vc.ValidUntil = JTime{t}
+			vc.ValidUntil = JTime{
+				InternalTime: t,
+			}
 			return nil
 		},
 	}
@@ -765,10 +850,13 @@ func WithValidUntil(t time.Time) VerifiableCredentialOption {
 func WithValidFor(t time.Duration) VerifiableCredentialOption {
 	return &baseVCOption{
 		f: func(vc *VerifiableCredential) error {
-			if !vc.ValidUntil.IsZero() {
+			if !vc.ValidUntil.InternalTime.IsZero() {
 				return errors.New("validUntil already set")
 			}
-			vc.ValidUntil = JTime{time.Now().Add(t)}
+			ii := time.Now().Add(t)
+			vc.ValidUntil = JTime{
+				InternalTime: ii,
+			}
 			return nil
 		},
 	}
@@ -806,13 +894,25 @@ func WithGaiaXContext() VerifiableCredentialOption {
 	}
 }
 
+func WithGaiaX2411Context() VerifiableCredentialOption {
+	return &baseVCOption{
+		f: func(vc *VerifiableCredential) error {
+			vc.Context.Context = append(vc.Context.Context, Namespace{
+				Namespace: "",
+				URL:       "https://w3id.org/gaia-x/2411#",
+			})
+			return nil
+		},
+	}
+}
+
 const JWTType = "vc+ld+jwt"
 const JWTCTY = "vc+ld"
 
 type JWSSignature struct {
 	OriginalJWT []byte
 	DID         *did.DID
-	JWTHeader   *JWTHeader
+	JWTHeader   jws.Headers
 }
 
 // VerifiableCredential implements the shape of a VC as defined in https://www.w3.org/TR/vc-data-model/#basic-concepts
@@ -935,16 +1035,41 @@ func (c *VerifiableCredential) Verify(options ...*verifyOption) error {
 		}
 		c.signature.DID = web
 
-		key, k := c.signature.DID.Keys[c.signature.JWTHeader.KID]
+		kid, ok := c.signature.JWTHeader.KeyID()
+		if !ok {
+			return fmt.Errorf("jwt header key ID not present")
+		}
+
+		key, k := c.signature.DID.Keys[kid]
 		if !k {
 			return errors.New("the KID from the JWT header does not match any key from the issuer DID")
 		}
 
-		if key.JWK.Algorithm() != c.signature.JWTHeader.Algorithm {
-			return fmt.Errorf("alg in jws %v does not match alg in did %v", c.signature.JWTHeader.Algorithm, key.JWK.Algorithm())
+		alg, ok := key.JWK.Algorithm()
+		if !ok {
+			return errors.New("the JWK key needs to specify the algorithm")
 		}
 
-		cert, err := VerifyCertChain(key.JWK.X509URL())
+		halg, ok := c.signature.JWTHeader.Algorithm()
+		if !ok {
+			return errors.New("the JWK key needs to specify the algorithm")
+		}
+
+		if alg != halg {
+			return fmt.Errorf("alg in jws %v does not match alg in did %v", halg, alg)
+		}
+
+		_, err = jws.Verify(c.signature.OriginalJWT, jws.WithKey(alg, key.JWK))
+		if err != nil {
+			return fmt.Errorf("verifiablePresentation signature is invalid: %w", err)
+		}
+
+		x5u, ok := key.JWK.X509URL()
+		if !ok {
+			return errors.New("the JWK key needs to specify the X5U URL")
+		}
+
+		cert, err := VerifyCertChain(x5u)
 		if err != nil {
 			return err
 		}
@@ -954,28 +1079,22 @@ func (c *VerifiableCredential) Verify(options ...*verifyOption) error {
 			return err
 		}
 
-		certKey, err := jwk.FromRaw(cert.PublicKey)
+		certKey, err := jwk.Import(cert.PublicKey)
 		if err != nil {
 			return fmt.Errorf("error on parsing JWK public key: %v", err)
 		}
 
-		certMap, err := certKey.AsMap(context.Background())
+		var certN []uint8
+
+		err = certKey.Get("n", &certN)
 		if err != nil {
 			return err
 		}
 
-		keyMap, err := key.JWK.AsMap(context.Background())
+		var keyN []uint8
+		err = key.JWK.Get("n", &keyN)
 		if err != nil {
 			return err
-		}
-
-		certN, ok := certMap["n"].([]uint8)
-		if !ok {
-			return errors.New("missing key in certificate")
-		}
-		keyN, ok := keyMap["n"].([]uint8)
-		if !ok {
-			return errors.New("missing key in jwk")
 		}
 
 		if base64.StdEncoding.EncodeToString(certN) != base64.StdEncoding.EncodeToString(keyN) {
@@ -986,42 +1105,62 @@ func (c *VerifiableCredential) Verify(options ...*verifyOption) error {
 			return fmt.Errorf("host %v not in the list of allowed DNS Names %v of the provided DID x509 certificate", host, cert.DNSNames)
 		}
 
-		_, err = jws.Verify(c.signature.OriginalJWT, jws.WithKey(c.signature.JWTHeader.Algorithm, key.JWK))
-		if err != nil {
-			return fmt.Errorf("verifiableCredential signature is invalid: %w", err)
+		typ, ok := c.signature.JWTHeader.Type()
+		if !ok {
+			return fmt.Errorf("jwt header type not present")
 		}
 
-		if !(c.signature.JWTHeader.TYP == JWTType || c.signature.JWTHeader.TYP == "vc+jwt") {
+		if !(typ == JWTType || typ == "vc+jwt") {
 			return fmt.Errorf("verifiableCredential signature header does not have the correct type of JWT")
 		}
 
-		if !(c.signature.JWTHeader.CTY == JWTCTY || c.signature.JWTHeader.CTY == "vc") {
+		cty, ok := c.signature.JWTHeader.ContentType()
+		if !ok {
+			return fmt.Errorf("jwt header cty not present")
+		}
+
+		if !(cty == JWTCTY || cty == "vc") {
 			return fmt.Errorf("verifiableCredential signature header does not have the correct cty")
 		}
 
 		now := time.Now()
 
-		if now.Unix() < c.signature.JWTHeader.IAT.Unix() && c.signature.JWTHeader.EXP.Unix() > 0 {
-			return fmt.Errorf("verifiableCredential issuance date is in the future %v %v", now.Format(time.RFC3339Nano), c.signature.JWTHeader.IAT.Format(time.RFC3339Nano))
+		var iat float64
+		var exp float64
+
+		err = c.signature.JWTHeader.Get("iat", &iat)
+		if err == nil {
+			if now.UnixMilli() < int64(iat) && iat > 0 {
+				return fmt.Errorf("verifiableCredential issuance date is in the future %v %v", now.Format(time.RFC3339Nano), iat)
+			}
 		}
-		if now.Unix() > c.signature.JWTHeader.EXP.Unix() && c.signature.JWTHeader.EXP.Unix() > 0 {
-			return fmt.Errorf("verifiableCredential not valid anymore")
+		err = c.signature.JWTHeader.Get("exp", &exp)
+		if err == nil {
+
+			if now.UnixMilli() > int64(exp) && exp > 0 {
+				return fmt.Errorf("verifiableCredential not valid anymore")
+			}
 		}
 
-		if !c.ValidUntil.IsZero() {
-			if !c.ValidUntil.After(now) {
+		if !c.ValidUntil.InternalTime.IsZero() {
+			if !c.ValidUntil.InternalTime.After(now) {
 				return fmt.Errorf("verifiableCredential is expired")
 			}
 		}
 
-		if !c.ValidFrom.IsZero() {
-			if c.ValidFrom.After(now) {
+		if !c.ValidFrom.InternalTime.IsZero() {
+			if c.ValidFrom.InternalTime.After(now) {
 				return fmt.Errorf("verifiableCredential is not valid yet")
 			}
 		}
 
 		if vO.issuerMatch {
-			if c.Issuer != c.signature.JWTHeader.Issuer {
+			var issuer string
+			err := c.signature.JWTHeader.Get("iss", &issuer)
+			if err != nil {
+				return err
+			}
+			if c.Issuer != issuer {
 				return fmt.Errorf("credential issuer does not match JWT issuer")
 			}
 		}
@@ -1042,7 +1181,7 @@ func (c *VerifiableCredential) Verify(options ...*verifyOption) error {
 				return fmt.Errorf("unexpected status code from trustedIssuerUrl server: %v", string(all))
 			}
 			if !(strings.Contains(string(all), host)) {
-				return errors.New("is not a trusted gx issuer")
+				return fmt.Errorf("%v is not a trusted gx issuer: %v", host, string(all))
 			}
 		}
 
@@ -1105,7 +1244,12 @@ func (c *VerifiableCredential) Verify(options ...*verifyOption) error {
 
 		k := key.JWK
 
-		_, err = VerifyCertChain(k.X509URL())
+		x5u, ok := k.X509URL()
+		if !ok {
+			return errors.New("jwk does not contain x5u attribute")
+		}
+
+		_, err = VerifyCertChain(x5u)
 		if err != nil {
 			log.Println(err)
 		}
@@ -1118,7 +1262,12 @@ func (c *VerifiableCredential) Verify(options ...*verifyOption) error {
 			hash = bytes.Join([][]byte{proofHash, sdHash}, []byte{})
 		}
 
-		_, err = jws.Verify([]byte(proof.JWS), jws.WithKey(k.Algorithm(), k), jws.WithDetachedPayload(hash))
+		algorithm, ok := k.Algorithm()
+		if !ok {
+			return errors.New("jwk does not contain algorithm")
+		}
+
+		_, err = jws.Verify([]byte(proof.JWS), jws.WithKey(algorithm, k), jws.WithDetachedPayload(hash))
 		if err != nil {
 			if !vO.retryWithOldSignature {
 				options = append(options, retryWithOldSignAlgorithm())
@@ -1234,6 +1383,7 @@ func (c *VerifiableCredential) HashHex() (string, error) {
 func (c *VerifiableCredential) String() string {
 	marshal, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
+		log.Println(err.Error())
 		return ""
 	}
 	return string(marshal)
