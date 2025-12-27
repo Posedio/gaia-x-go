@@ -3,14 +3,14 @@ MIT License
 Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
 Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 */
-package loire
+package tagus
 
 import (
 	"testing"
 
 	"github.com/Posedio/gaia-x-go/compliance"
 	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
-	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwa"
 )
 
 func TestCompliantServiceOffering(t *testing.T) {
@@ -25,9 +25,9 @@ func TestCompliantServiceOffering(t *testing.T) {
 		"tagus",
 		&compliance.IssuerSetting{
 			Key:                key,
-			Alg:                jwa.PS256,
+			Alg:                jwa.PS256(),
 			Issuer:             "did:web:did.dumss.me",
-			VerificationMethod: "did:web:did.dumss.me#v2-2025",
+			VerificationMethod: "did:web:did.dumss.me#v3-2025",
 		},
 	)
 	if err != nil {

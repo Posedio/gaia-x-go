@@ -21,7 +21,7 @@ import (
 	"github.com/Posedio/gaia-x-go/did"
 	vcTypes "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"github.com/go-playground/validator/v10"
-	"github.com/lestrrat-go/jwx/v2/jws"
+	"github.com/lestrrat-go/jwx/v3/jws"
 )
 
 // LoireCompliance is compatibility is checked up to clearinghouse 1.11.1
@@ -125,13 +125,14 @@ func (c *LoireCompliance) SelfSignVC(vc *vcTypes.VerifiableCredential) (*vcTypes
 	if err != nil {
 		return nil, err
 	}
+
 	err = headers.Set("iat", time.Now().UnixMilli())
 	if err != nil {
 		return nil, err
 	}
 
-	if !vc.ValidUntil.IsZero() {
-		err = headers.Set("exp", vc.ValidUntil.UnixMilli())
+	if !vc.ValidUntil.InternalTime.IsZero() {
+		err = headers.Set("exp", vc.ValidUntil.InternalTime.UnixMilli())
 		if err != nil {
 			return nil, err
 		}
@@ -363,7 +364,7 @@ func (c *LoireCompliance) SignServiceOfferingWithContext(ctx context.Context, op
 	}
 
 	vp.Issuer = c.issuer.Issuer
-	vp.ValidFrom.Time = time.Now()
+	vp.ValidFrom.InternalTime = time.Now()
 
 	j, err := vp.ToJson()
 	if err != nil {
@@ -387,7 +388,7 @@ func (c *LoireCompliance) SignServiceOfferingWithContext(ctx context.Context, op
 		return nil, nil, err
 	}
 
-	req.Header.Set("Content-Type", "application/vc+ld+json+jwt")
+	req.Header.Set("Content-Type", "application/vp+jwt")
 
 	c.client.Timeout = 120 * time.Second
 

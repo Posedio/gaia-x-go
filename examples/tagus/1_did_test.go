@@ -3,17 +3,18 @@ MIT License
 Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
 Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 */
-package loire
+
+package tagus
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
-	"github.com/Posedio/gaia-x-go/did"
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	"testing"
+
+	"github.com/Posedio/gaia-x-go/did"
+	"github.com/lestrrat-go/jwx/v3/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 )
 
 func TestNewDID(t *testing.T) {
@@ -26,7 +27,7 @@ func TestNewDID(t *testing.T) {
 	// build a JWK from the key, for the specification see https://www.rfc-editor.org/rfc/rfc7517
 
 	// load a JWK from the private key, attention you SHOULD never publish this JWK since it contains "d" which is your private key
-	JWK, err := jwk.FromRaw(privateKey)
+	JWK, err := jwk.Import(privateKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,22 +38,22 @@ func TestNewDID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// export the JWK to a map so it can be convenient be added to the new DID
-	JWKPublicAsMap, err := JWKPublic.AsMap(context.Background())
+	// The "x5u" (X.509 URL) parameter is a URI [RFC3986] that refers to a
+	// resource for an X.509 public key certificate or certificate chain (see https://www.rfc-editor.org/rfc/rfc7517#section-4.6)
+	err = JWKPublic.Set("x5u", "http://url.to.your.certificate.chain")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// The "x5u" (X.509 URL) parameter is a URI [RFC3986] that refers to a
-	// resource for an X.509 public key certificate or certificate chain (see https://www.rfc-editor.org/rfc/rfc7517#section-4.6)
-	JWKPublicAsMap["x5u"] = "http://url.to.your.certificate.chain"
 
 	// The "alg" (algorithm) parameter identifies the algorithm intended for
 	// use with the key.  The values used should either be registered in the
 	// IANA "JSON Web Signature and Encryption Algorithms" registry
 	// established by [JWA] or be a value that contains a Collision-
 	// Resistant Name. (See https://www.rfc-editor.org/rfc/rfc7517#section-4.4)
-	JWKPublicAsMap["alg"] = jwa.PS256
+	err = JWKPublic.Set("alg", jwa.PS256())
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// generate a new did with ID, since we want a did:web (see https://w3c-ccg.github.io/did-method-web/)
 	// we use a did:web prefix followed by the domain e.g. did:web:gaia-x.eu
@@ -70,7 +71,7 @@ func TestNewDID(t *testing.T) {
 			// the use auf JsonWebKey is recommended
 			Type: "JsonWebKey2020",
 			// just insert the before build JWK MUST be the one with the public key
-			PublicKeyJwk: JWKPublicAsMap,
+			PublicKeyJwk: JWKPublic,
 		},
 	}
 
@@ -92,40 +93,46 @@ func TestNewDID(t *testing.T) {
 }
 
 func TestNewDIDFromCertificate(t *testing.T) {
-	//in case the file contains multiple keys select the one you want to use
 	privateKeyJWK := key
+
 	// from here you can follow the same approach as in the TestNewDID defined
 	publicKeyJWK, err := privateKeyJWK.PublicKey()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	JWKPublicAsMap, err := publicKeyJWK.AsMap(context.Background())
+	err = publicKeyJWK.Set("x5u", "http://url.to.your.certificate.chain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = publicKeyJWK.Set("alg", jwa.PS256())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	JWKPublicAsMap["x5u"] = "http://url.to.your.certificate.chain"
-	JWKPublicAsMap["alg"] = jwa.PS256
-
-	DID := did.NewDID("did:web:test.test")
+	DID := did.NewDID("did:web:did.dumss.me")
 
 	DID.VerificationMethod = []did.VerificationMethod{
 		{
-			Id:           "did:web:test.test#RSA",
-			Controller:   "did:web:test.test",
+			Id:           "did:web:did.dumss.me#v1-2025",
+			Controller:   "did:web:did.dumss.me",
 			Type:         "JsonWebKey2020",
-			PublicKeyJwk: JWKPublicAsMap,
+			PublicKeyJwk: publicKeyJWK,
 		},
 	}
 
 	DID.AssertionMethod = did.VerificationMethods{
 		did.VerificationMethod{
-			Id: "did:web:test.test#RSA",
+			Id: "did:web:did.dumss.me#v1-2025",
 		},
 	}
 
 	DIDPublicJson, err := json.MarshalIndent(DID, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = DID.ResolveMethods()
 	if err != nil {
 		t.Fatal(err)
 	}

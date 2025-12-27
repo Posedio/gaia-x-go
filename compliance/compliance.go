@@ -10,16 +10,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/hashicorp/go-retryablehttp"
-	"github.com/lestrrat-go/jwx/v2/jwa"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
+	"github.com/lestrrat-go/jwx/v3/jwa"
 
 	"github.com/Posedio/gaia-x-go/did"
 
 	vcTypes "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"github.com/go-playground/validator/v10"
-	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 )
 
 type Compliance interface {
@@ -242,9 +243,11 @@ func NewComplianceConnectorV2(clearingHouse Endpoints, version string, issuer *I
 	if opt.retryClient == nil {
 		opt.retryClient = retryablehttp.NewClient()
 		opt.retryClient.RetryMax = 2
+		opt.retryClient.RetryWaitMin = 10 * time.Second
 		opt.retryClient.RetryWaitMax = 60 * time.Second
-		opt.retryClient.HTTPClient.Timeout = 60 * time.Second
+		opt.retryClient.HTTPClient.Timeout = 90 * time.Second
 		opt.retryClient.Logger = nil
+
 		opt.retryClient.CheckRetry = vcTypes.DefaultRetryPolicy
 	}
 
@@ -376,7 +379,7 @@ func NewComplianceConnector(signUrl ServiceUrl, notaryUrl NotaryURL, version str
 			Key:                key,
 			VerificationMethod: verificationMethod,
 			Issuer:             issuer,
-			Alg:                jwa.PS256,
+			Alg:                jwa.PS256(),
 		}
 		c := &TagusCompliance{
 			signUrl:   signUrl,
@@ -399,7 +402,7 @@ func NewComplianceConnector(signUrl ServiceUrl, notaryUrl NotaryURL, version str
 			Key:                key,
 			VerificationMethod: verificationMethod,
 			Issuer:             issuer,
-			Alg:                jwa.PS256,
+			Alg:                jwa.PS256(),
 		}
 		c := &LoireCompliance{
 			signUrl:   signUrl,

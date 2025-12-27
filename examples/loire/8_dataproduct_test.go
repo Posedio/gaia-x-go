@@ -7,10 +7,14 @@ Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 package loire
 
 import (
+	"io"
+	"log"
+	"net/http"
 	"testing"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 
 	"github.com/Posedio/gaia-x-go/compliance"
 	"github.com/Posedio/gaia-x-go/gxTypes"
@@ -18,20 +22,62 @@ import (
 )
 
 func TestDataProduct(t *testing.T) {
+	/*
+		var idprefix = "https://did.dumss.me/"
+		var issuer = "did:web:did.dumss.me"
+		var countryCode = "AT"
+		var countryName = "Austria"
+
+		// instantiate a Compliance Connector for the Loire release
+		connector, err := compliance.NewComplianceConnectorV2(
+			compliance.Endpoints{Compliance: compliance.V2Staging, Notary: compliance.DeltaDaoV2Notary},
+			"loire",
+			&compliance.IssuerSetting{
+				Key:                key,
+				Alg:                jwa.PS256(),
+				Issuer:             issuer,
+				VerificationMethod: "did:web:did.dumss.me#v2-2025",
+			})
+		if err != nil {
+			t.Fatal(err)
+		}
+	*/
 	var idprefix = "https://did.dumss.me/"
-	var issuer = "did:web:did.dumss.me"
+	var issuer = "did:web:validate.posedio.com"
 	var countryCode = "AT"
 	var countryName = "Austria"
 
+	set, err := jwk.ReadFile("validate.posedio.com_key.pem", jwk.WithPEM(true))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	privateKeyJWK, ok := set.Key(0)
+	if !ok {
+		log.Fatal("no key in set")
+	}
+
+	u := compliance.ArsysV2.StatusURL()
+
+	get, err := http.Get(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer get.Body.Close()
+	body, err := io.ReadAll(get.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(string(body))
+
 	// instantiate a Compliance Connector for the Loire release
-	connector, err := compliance.NewComplianceConnectorV2(
-		compliance.Endpoints{Compliance: compliance.V2Staging, Notary: compliance.DeltaDaoV2Notary},
+	connector, err := compliance.NewComplianceConnectorV2(compliance.Endpoints{Compliance: compliance.DeltaDaoV2, Notary: compliance.ArsysV2Notary},
 		"loire",
 		&compliance.IssuerSetting{
-			Key:                key,
-			Alg:                jwa.PS256,
+			Key:                privateKeyJWK,
+			Alg:                jwa.PS384(),
 			Issuer:             issuer,
-			VerificationMethod: "did:web:did.dumss.me#v2-2025",
+			VerificationMethod: "did:web:validate.posedio.com#2025-v1",
 		})
 	if err != nil {
 		t.Fatal(err)
@@ -50,7 +96,7 @@ func TestDataProduct(t *testing.T) {
 		t.Fatal(err)
 	}
 	// verify the credential (not needed but recommended)
-	err = LRNVC.Verify(vc.IssuerMatch(), vc.IsGaiaXTrustedIssuer(compliance.DeltaDaoV2Notary.String()))
+	err = LRNVC.Verify(vc.IssuerMatch(), vc.IsGaiaXTrustedIssuer(compliance.TSystemRegistryV2.TrustedIssuer()))
 	if err != nil {
 		t.Fatal(err)
 	}

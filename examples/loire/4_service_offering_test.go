@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwa"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/Posedio/gaia-x-go/compliance"
@@ -43,13 +43,13 @@ func TestCompliance(t *testing.T) {
 	t.Log(string(body))
 
 	connector, err := compliance.NewComplianceConnectorV2(
-		compliance.Endpoints{Compliance: compliance.V2Staging, Notary: compliance.DeltaDaoV2Notary},
+		compliance.Endpoints{Compliance: compliance.Development, Notary: compliance.DeltaDaoV2Notary},
 		"loire",
 		&compliance.IssuerSetting{
 			Key:                key,
-			Alg:                jwa.PS256,
+			Alg:                jwa.PS256(),
 			Issuer:             issuer,
-			VerificationMethod: "did:web:did.dumss.me#v2-2025",
+			VerificationMethod: "did:web:did.dumss.me#v3-2025",
 		})
 	if err != nil {
 		t.Fatal(err)
@@ -1511,7 +1511,7 @@ func TestCompliance(t *testing.T) {
 
 	vp.AddEnvelopedVC(offering.GetOriginalJWS())
 
-	validFor := offering.ValidUntil.Sub(time.Now())
+	validFor := offering.ValidUntil.InternalTime.Sub(time.Now())
 
 	err = connector.SelfSignPresentation(vp, validFor)
 	if err != nil {

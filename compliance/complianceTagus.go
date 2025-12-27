@@ -12,19 +12,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Posedio/gaia-x-go/gxTypes"
 	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/Posedio/gaia-x-go/gxTypes"
+
 	"github.com/Posedio/gaia-x-go/did"
 	vcTypes "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"github.com/go-playground/validator/v10"
-	"github.com/lestrrat-go/jwx/v2/jwa"
-	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/lestrrat-go/jwx/v2/jws"
+	"github.com/lestrrat-go/jwx/v3/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwk"
+	"github.com/lestrrat-go/jwx/v3/jws"
 )
 
 type TagusCompliance struct {

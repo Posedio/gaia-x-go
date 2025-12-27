@@ -7,7 +7,7 @@ import (
 	"github.com/Posedio/gaia-x-go/compliance"
 	"github.com/Posedio/gaia-x-go/gxTypes"
 	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
-	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwa"
 )
 
 func TestLegalPersonDirect(t *testing.T) {
@@ -23,9 +23,9 @@ func TestLegalPersonDirect(t *testing.T) {
 		"loire",
 		&compliance.IssuerSetting{
 			Key:                key,
-			Alg:                jwa.PS256,
+			Alg:                jwa.PS256(),
 			Issuer:             issuer,
-			VerificationMethod: "did:web:did.dumss.me#v2-2025",
+			VerificationMethod: "did:web:did.dumss.me#v3-2025",
 		})
 	if err != nil {
 		t.Fatal(err)

@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/Posedio/gaia-x-go/compliance"
-	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwa"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,9 +29,9 @@ func TestSignTermsAndConditions(t *testing.T) {
 		"loire",
 		&compliance.IssuerSetting{
 			Key:                key,
-			Alg:                jwa.PS256,
+			Alg:                jwa.PS256(),
 			Issuer:             "did:web:did.dumss.me",
-			VerificationMethod: "did:web:did.dumss.me#v2-2025",
+			VerificationMethod: "did:web:did.dumss.me#v3-2025",
 		})
 
 	if err != nil {

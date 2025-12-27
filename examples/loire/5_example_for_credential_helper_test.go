@@ -12,7 +12,7 @@ import (
 	"github.com/Posedio/gaia-x-go/compliance"
 	"github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"github.com/goccy/go-json"
-	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 )
 
 // needs rework since the credential helper in the newest version has no field for custom endpoints

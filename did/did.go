@@ -9,10 +9,11 @@ package did
 import (
 	"encoding/json"
 	"errors"
-	"github.com/dgraph-io/ristretto/v2"
-	"github.com/lestrrat-go/jwx/v2/jwk"
 	"strings"
 	"time"
+
+	"github.com/dgraph-io/ristretto/v2"
+	"github.com/lestrrat-go/jwx/v3/jwk"
 )
 
 /*
@@ -173,11 +174,11 @@ type Key struct {
 
 // VerificationMethod as defined in https://www.w3.org/TR/did-core/#verification-method-properties
 type VerificationMethod struct {
-	Id                 string                 `json:"id"`
-	Controller         string                 `json:"controller"`
-	Type               string                 `json:"type"`
-	PublicKeyJwk       map[string]interface{} `json:"publicKeyJwk,omitempty"` //json jwk representation
-	PublicKeyMultibase string                 `json:"publicKeyMultibase,omitempty"`
+	Id                 string `json:"id"`
+	Controller         string `json:"controller"`
+	Type               string `json:"type"`
+	PublicKeyJwk       any    `json:"publicKeyJwk,omitempty"` //json jwk representation
+	PublicKeyMultibase string `json:"publicKeyMultibase,omitempty"`
 }
 
 type ServiceType string

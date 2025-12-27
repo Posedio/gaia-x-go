@@ -11,7 +11,7 @@ import (
 	"github.com/Posedio/gaia-x-go/compliance"
 	"github.com/Posedio/gaia-x-go/gxTypes"
 	"github.com/Posedio/gaia-x-go/verifiableCredentials"
-	"github.com/lestrrat-go/jwx/v2/jwa"
+	"github.com/lestrrat-go/jwx/v3/jwa"
 )
 
 func TestCompliantParticipant(t *testing.T) {
@@ -23,7 +23,7 @@ func TestCompliantParticipant(t *testing.T) {
 		"loire",
 		&compliance.IssuerSetting{
 			Key:                key,
-			Alg:                jwa.PS256,
+			Alg:                jwa.PS256(),
 			Issuer:             "did:web:did.dumss.me",
 			VerificationMethod: "did:web:did.dumss.me#v2-2025",
 		})

@@ -4,11 +4,12 @@ Copyright (c) 2023-2025 Stefan Dumss, MIVP TU Wien
 Copyright (c) 2025 Stefan Dumss, Posedio GmbH
 */
 
-package loire
+package tagus
 
 import (
-	"github.com/Posedio/gaia-x-go/compliance"
 	"testing"
+
+	"github.com/Posedio/gaia-x-go/compliance"
 )
 
 func TestFirstComplianceCredential(t *testing.T) {
