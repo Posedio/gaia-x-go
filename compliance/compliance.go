@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Posedio/gaia-x-go/signer"
 	"github.com/hashicorp/go-retryablehttp"
 	"github.com/lestrrat-go/jwx/v3/jwa"
 
@@ -24,15 +25,11 @@ import (
 )
 
 type Compliance interface {
-	SelfSign(credential *vcTypes.VerifiableCredential) error
-	ReSelfSign(credential *vcTypes.VerifiableCredential) error
-	SelfSignPresentation(presentation *vcTypes.VerifiablePresentation, validFor time.Duration) error
-	SelfVerify(vc *vcTypes.VerifiableCredential) error
+	signer.Signer
 	SignLegalRegistrationNumber(options LegalRegistrationNumberOptions) (*vcTypes.VerifiableCredential, error)
 	SignTermsAndConditions(id string) (*vcTypes.VerifiableCredential, error)
 	GaiaXSignParticipant(options ParticipantComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error)
 	SelfSignSignTermsAndConditions(id string) (*vcTypes.VerifiableCredential, error)
-	SelfSignCredentialSubject(id string, credentialSubject []map[string]interface{}) (*vcTypes.VerifiableCredential, error)
 	SignServiceOffering(options ServiceOfferingComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error)
 	SignServiceOfferingWithContext(ctx context.Context, options ServiceOfferingComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error)
 	GetTermsAndConditions(url RegistryUrl) (string, error)
@@ -58,8 +55,8 @@ type Endpoints struct {
 type NotaryURL string
 
 const (
-	AireV1Notary     NotaryURL = "https://gx-notary.airenetworks.es/v1/"
-	ArsysV1Notary    NotaryURL = "https://gx-notary.arsys.es/v1/"
+	AireV1Notary NotaryURL = "https://gx-notary.airenetworks.es/v1/"
+	//ArsysV1Notary    NotaryURL = "https://gx-notary.arsys.es/v1/"
 	ArubaV1Notary    NotaryURL = "https://gx-notary.aruba.it/v1/"
 	TSystemV1Notary  NotaryURL = "https://gx-notary.gxdch.dih.telekom.com/v1/"
 	DeltaDaoV1Notary NotaryURL = "https://www.delta-dao.com/notary/v1/"
@@ -69,7 +66,7 @@ const (
 	PfalzkomV1Notary NotaryURL = "https://trust-anker.pfalzkom-gxdch.de/v1/"
 	CISPEV1Notary    NotaryURL = "https://notary.cispe.gxdch.clouddataengine.io/v1/"
 	CISPEV2Notary    NotaryURL = "https://notary.cispe.gxdch.clouddataengine.io/v2/"
-	ArsysV2Notary    NotaryURL = "https://gx-notary.arsys.es/v2/"
+	//ArsysV2Notary    NotaryURL = "https://gx-notary.arsys.es/v2/"
 	TSystemV2Notary  NotaryURL = "https://gx-notary.gxdch.dih.telekom.com/v2/"
 	DeltaDaoV2Notary NotaryURL = "https://www.delta-dao.com/notary/v2/"
 	NeustaV2Notary   NotaryURL = "https://aerospace-digital-exchange.eu/notary/v2/"
@@ -126,20 +123,20 @@ const (
 	V2                ServiceUrl = "https://compliance.lab.gaia-x.eu/v2/api/credential-offers"
 	Development       ServiceUrl = "https://compliance.lab.gaia-x.eu/development/api/credential-offers"
 	AireV1            ServiceUrl = "https://gx-compliance.airenetworks.es/v1/credential-offer"
-	ArsysV1           ServiceUrl = "https://gx-compliance.arsys.es/v1/credential-offer"
-	ArubaV1           ServiceUrl = "https://gx-compliance.aruba.it/v1/credential-offer"
-	TSystemsV1        ServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v1/credential-offer"
-	DeltaDAOV1        ServiceUrl = "https://www.delta-dao.com/compliance/v1/credential-offer"
-	OVHV1             ServiceUrl = "https://compliance.gxdch.gaiax.ovh/v1/credential-offer"
-	NeustaV1          ServiceUrl = "https://aerospace-digital-exchange.eu/compliance/v1/credential-offer"
-	ProximusV1        ServiceUrl = "https://gx-compliance.gxdch.proximus.eu/v1/credential-offer"
-	PfalzKomV1        ServiceUrl = "https://compliance.pfalzkom-gxdch.de/v1/credential-offer"
-	CISPEV1           ServiceUrl = "https://compliance.cispe.gxdch.clouddataengine.io/v1/credential-offer"
-	CISPEV2           ServiceUrl = "https://compliance.cispe.gxdch.clouddataengine.io/v2/api/credential-offers"
-	ArsysV2           ServiceUrl = "https://gx-compliance.arsys.es/v2/api/credential-offers"
-	TSystemsV2        ServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v2/api/credential-offers"
-	DeltaDaoV2        ServiceUrl = "https://www.delta-dao.com/compliance/v2/api/credential-offers"
-	NeustaV2          ServiceUrl = "https://aerospace-digital-exchange.eu/compliance/v2/api/credential-offers"
+	//ArsysV1           ServiceUrl = "https://gx-compliance.arsys.es/v1/credential-offer"
+	ArubaV1    ServiceUrl = "https://gx-compliance.aruba.it/v1/credential-offer"
+	TSystemsV1 ServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v1/credential-offer"
+	DeltaDAOV1 ServiceUrl = "https://www.delta-dao.com/compliance/v1/credential-offer"
+	OVHV1      ServiceUrl = "https://compliance.gxdch.gaiax.ovh/v1/credential-offer"
+	NeustaV1   ServiceUrl = "https://aerospace-digital-exchange.eu/compliance/v1/credential-offer"
+	ProximusV1 ServiceUrl = "https://gx-compliance.gxdch.proximus.eu/v1/credential-offer"
+	PfalzKomV1 ServiceUrl = "https://compliance.pfalzkom-gxdch.de/v1/credential-offer"
+	CISPEV1    ServiceUrl = "https://compliance.cispe.gxdch.clouddataengine.io/v1/credential-offer"
+	CISPEV2    ServiceUrl = "https://compliance.cispe.gxdch.clouddataengine.io/v2/api/credential-offers"
+	//ArsysV2           ServiceUrl = "https://gx-compliance.arsys.es/v2/api/credential-offers"
+	TSystemsV2 ServiceUrl = "https://gx-compliance.gxdch.dih.telekom.com/v2/api/credential-offers"
+	DeltaDaoV2 ServiceUrl = "https://www.delta-dao.com/compliance/v2/api/credential-offers"
+	NeustaV2   ServiceUrl = "https://aerospace-digital-exchange.eu/compliance/v2/api/credential-offers"
 )
 
 type RegistryUrl string
@@ -161,8 +158,8 @@ func (r RegistryUrl) StatusURL() string {
 }
 
 const (
-	AireRegistryV1     RegistryUrl = "https://gx-registry.airenetworks.es/v1/"
-	ArsysRegistryV1    RegistryUrl = "https://gx-registry.arsys.es/v1/"
+	AireRegistryV1 RegistryUrl = "https://gx-registry.airenetworks.es/v1/"
+	//ArsysRegistryV1    RegistryUrl = "https://gx-registry.arsys.es/v1/"
 	ArubaRegistryV1    RegistryUrl = "https://gx-registry.aruba.it/v1/"
 	TSystemsRegistryV1 RegistryUrl = "https://gx-registry.gxdch.dih.telekom.com/v1/"
 	DeltaDaoRegistryV1 RegistryUrl = "https://www.delta-dao.com/registry/v1/"
@@ -173,7 +170,7 @@ const (
 	CISPERegistryV1    RegistryUrl = "https://registry.cispe.gxdch.clouddataengine.io/v1/"
 	CISPERegistryV2    RegistryUrl = "https://registry.cispe.gxdch.clouddataengine.io/v2/"
 	RegistryV1         RegistryUrl = "https://registry.lab.gaia-x.eu/v1/"
-	ArsysRegistryV2    RegistryUrl = "https://gx-registry.arsys.es/v2/"
+	//ArsysRegistryV2    RegistryUrl = "https://gx-registry.arsys.es/v2/"
 	TSystemRegistryV2  RegistryUrl = "https://gx-registry.gxdch.dih.telekom.com/v2/"
 	DeltaDAORegistryV2 RegistryUrl = "https://www.delta-dao.com/registry/v2/"
 	NeustaRegistryV2   RegistryUrl = "https://aerospace-digital-exchange.eu/registry/v2/"
@@ -206,6 +203,8 @@ var participantNamespace = vcTypes.Namespace{
 	URL:       participantURL,
 }
 
+// IssuerSetting
+// Deprecated: will be removed with the next major release and replaced by signer.IssuerSetting
 type IssuerSetting struct {
 	Key                jwk.Key
 	Alg                jwa.SignatureAlgorithm
@@ -309,13 +308,22 @@ func NewComplianceConnectorV2(clearingHouse Endpoints, version string, issuer *I
 	} else if version == "24.11" || version == "loire" || version == "Loire" {
 
 		c := &LoireCompliance{
+			Signer: &signer.JWTSigner{
+				Client: hc,
+				Issuer: &signer.IssuerSetting{
+					Key:                issuer.Key,
+					Alg:                issuer.Alg,
+					Issuer:             issuer.Issuer,
+					VerificationMethod: issuer.VerificationMethod,
+				},
+			},
 			signUrl:   clearingHouse.Compliance,
 			version:   version,
 			issuer:    issuer,
 			notaryURL: clearingHouse.Notary,
 			client:    hc,
-			did:       didResolved,
-			validate:  validator.New(),
+			//did:       didResolved,
+			validate: validator.New(),
 		}
 
 		err := c.validate.RegisterValidation("validateRegistrationNumberType", ValidateRegistrationNumberType)
@@ -405,12 +413,20 @@ func NewComplianceConnector(signUrl ServiceUrl, notaryUrl NotaryURL, version str
 			Alg:                jwa.PS256(),
 		}
 		c := &LoireCompliance{
+			Signer: &signer.JWTSigner{
+				Client: hc,
+				Issuer: &signer.IssuerSetting{
+					Key:                iss.Key,
+					Alg:                iss.Alg,
+					Issuer:             iss.Issuer,
+					VerificationMethod: iss.VerificationMethod,
+				},
+			},
 			signUrl:   signUrl,
 			version:   version,
 			issuer:    iss,
 			notaryURL: notaryUrl,
 			client:    hc,
-			did:       didResolved,
 			validate:  validator.New(),
 		}
 

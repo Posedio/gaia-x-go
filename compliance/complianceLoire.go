@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"github.com/Posedio/gaia-x-go/gxTypes"
+	"github.com/Posedio/gaia-x-go/signer"
 
-	"github.com/Posedio/gaia-x-go/did"
 	vcTypes "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"github.com/go-playground/validator/v10"
 	"github.com/lestrrat-go/jwx/v3/jws"
@@ -26,148 +26,13 @@ import (
 
 // LoireCompliance is compatibility is checked up to clearinghouse 1.11.1
 type LoireCompliance struct {
+	signer.Signer
 	signUrl   ServiceUrl
 	version   string
 	issuer    *IssuerSetting
 	client    *http.Client
-	did       *did.DID
 	notaryURL NotaryURL
 	validate  *validator.Validate
-}
-
-// SelfSign adds a crypto proof to the self-description
-func (c *LoireCompliance) SelfSign(vc *vcTypes.VerifiableCredential) error {
-	_, err := c.SelfSignVC(vc)
-	return err
-}
-
-func (c *LoireCompliance) SelfSignPresentation(vp *vcTypes.VerifiablePresentation, validFor time.Duration) error {
-	if vp == nil {
-		return errors.New("vc can not be nil")
-	}
-
-	if vp.Issuer == "" {
-		vp.Issuer = c.issuer.Issuer
-	}
-
-	headers := jws.NewHeaders()
-	err := headers.Set("alg", c.issuer.Alg.String())
-	if err != nil {
-		return err
-	}
-	err = headers.Set("iss", c.issuer.Issuer)
-	if err != nil {
-		return err
-	}
-	err = headers.Set("kid", c.issuer.VerificationMethod)
-	if err != nil {
-		return err
-	}
-	err = headers.Set("iat", time.Now().UnixMilli())
-	if err != nil {
-		return err
-	}
-
-	if validFor != 0 {
-		err = headers.Set("exp", time.Now().Add(validFor).UnixMilli())
-		if err != nil {
-			return err
-		}
-	}
-
-	err = headers.Set("cty", "vp")
-	if err != nil {
-		return err
-	}
-	err = headers.Set("typ", "vp+jwt")
-	if err != nil {
-		return err
-	}
-
-	jsc, err := vp.ToJson()
-	if err != nil {
-		return err
-	}
-
-	buf, err := jws.Sign(jsc, jws.WithKey(c.issuer.Alg, c.issuer.Key, jws.WithProtectedHeaders(headers)))
-	if err != nil {
-		return err
-	}
-
-	err = vp.AddSignature(buf)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *LoireCompliance) ReSelfSign(credential *vcTypes.VerifiableCredential) error {
-	credential.Proof = nil
-	_, err := c.SelfSignVC(credential)
-	return err
-}
-
-func (c *LoireCompliance) SelfSignVC(vc *vcTypes.VerifiableCredential) (*vcTypes.VerifiableCredential, error) {
-	if vc == nil {
-		return nil, errors.New("vc can not be nil")
-	}
-
-	headers := jws.NewHeaders()
-	err := headers.Set("alg", c.issuer.Alg.String())
-	if err != nil {
-		return nil, err
-	}
-	err = headers.Set("iss", c.issuer.Issuer)
-	if err != nil {
-		return nil, err
-	}
-	err = headers.Set("kid", c.issuer.VerificationMethod)
-	if err != nil {
-		return nil, err
-	}
-
-	err = headers.Set("iat", time.Now().UnixMilli())
-	if err != nil {
-		return nil, err
-	}
-
-	if !vc.ValidUntil.InternalTime.IsZero() {
-		err = headers.Set("exp", vc.ValidUntil.InternalTime.UnixMilli())
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	err = headers.Set("cty", "vc+ld")
-	if err != nil {
-		return nil, err
-	}
-	err = headers.Set("typ", "vc+ld+jwt")
-	if err != nil {
-		return nil, err
-	}
-
-	jsc, err := vc.JSC()
-	if err != nil {
-		return nil, err
-	}
-
-	buf, err := jws.Sign(jsc, jws.WithKey(c.issuer.Alg, c.issuer.Key, jws.WithProtectedHeaders(headers)))
-	if err != nil {
-		return nil, err
-	}
-
-	err = vc.AddSignature(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	return vc, nil
-
-}
-
-func (c *LoireCompliance) SelfVerify(vc *vcTypes.VerifiableCredential) error {
-	return vc.Verify()
 }
 
 func (c *LoireCompliance) SignLegalRegistrationNumber(options LegalRegistrationNumberOptions) (*vcTypes.VerifiableCredential, error) {
@@ -263,29 +128,6 @@ func (c *LoireCompliance) SignTermsAndConditions(id string) (*vcTypes.Verifiable
 	}
 
 	return tcVC, nil
-}
-
-func (c *LoireCompliance) SelfSignCredentialSubject(id string, credentialSubject []map[string]interface{}) (*vcTypes.VerifiableCredential, error) {
-	vc, err := vcTypes.NewEmptyVerifiableCredentialV2(
-		vcTypes.WithVCID(id),
-		vcTypes.WithValidFromNow(),
-		vcTypes.WithIssuer(c.issuer.Issuer),
-		vcTypes.WithGaiaXContext())
-
-	if err != nil {
-		return nil, err
-	}
-
-	err = vc.AddToCredentialSubject(credentialSubject)
-	if err != nil {
-		return nil, err
-	}
-
-	signedVC, err := c.SelfSignVC(vc)
-	if err != nil {
-		return nil, err
-	}
-	return signedVC, nil
 }
 
 func (c *LoireCompliance) GaiaXSignParticipant(po ParticipantComplianceOptions) (*vcTypes.VerifiableCredential, *vcTypes.VerifiablePresentation, error) {
@@ -385,7 +227,7 @@ func (c *LoireCompliance) SignServiceOfferingWithContext(ctx context.Context, op
 
 	req, err := http.NewRequestWithContext(ctx, "POST", u, bytes.NewBuffer(buf))
 	if err != nil {
-		return nil, nil, err
+		return nil, vp, err
 	}
 
 	req.Header.Set("Content-Type", "application/vp+jwt")
@@ -394,22 +236,22 @@ func (c *LoireCompliance) SignServiceOfferingWithContext(ctx context.Context, op
 
 	do, err := c.client.Do(req)
 	if err != nil {
-		return nil, nil, err
+		return nil, vp, err
 	}
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
 	}(do.Body)
 	all, err := io.ReadAll(do.Body)
 	if err != nil {
-		return nil, nil, err
+		return nil, vp, err
 	}
 	if do.StatusCode != 201 {
-		return nil, nil, errors.New(string(all))
+		return nil, vp, errors.New(string(all))
 	}
 
 	complianceCredential, err := vcTypes.VCFromJWT(all)
 	if err != nil {
-		return nil, nil, err
+		return nil, vp, err
 	}
 
 	return complianceCredential, vp, nil

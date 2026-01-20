@@ -43,7 +43,7 @@ func TestCompliance(t *testing.T) {
 	t.Log(string(body))
 
 	connector, err := compliance.NewComplianceConnectorV2(
-		compliance.Endpoints{Compliance: compliance.Development, Notary: compliance.DeltaDaoV2Notary},
+		compliance.Endpoints{Compliance: compliance.V2Staging, Notary: compliance.DeltaDaoV2Notary},
 		"loire",
 		&compliance.IssuerSetting{
 			Key:                key,
@@ -809,7 +809,7 @@ func TestCompliance(t *testing.T) {
 		LegalDocument: gxTypes.LegalDocument{
 			URL: vc.WithAnyURI("https://www.posedio.com/DataPortability"),
 		},
-		Means:             []string{"Means used to transfer the customer's stored data to another provider. String"},
+		Means:             []string{"Means used to transfer the customer s stored data to another provider. String"},
 		Pricing:           vc.WithAnyURI("https://www.posedio.com/pricing"),
 		Resource:          pointOfPresenceCS.ID,
 		DeletionMethods:   []string{"none"},
@@ -1221,11 +1221,36 @@ func TestCompliance(t *testing.T) {
 	vp.AddEnvelopedVC(DocumentChangeProceduresVC.GetOriginalJWS())
 
 	// ___________________________________ criteria ___________________________________
+	// P1.2.2
 	// The Provider shall ensure there are provisions governing the rights of the parties to use the service and any Customer
 	//Data therein.
 	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/docs/labelling-criteria.md#criterion-p122
 	// https://docs.gaia-x.eu/policy-rules-committee/compliance-document/24.11/criteria_cloud_services/#P1.2.2
 	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/src/vp-validation/filter/service-offering-has-data-usage-rights-for-parties.filter.ts
+
+	// P1.1.1
+	// The Provider shall offer the ability to establish a legally binding act. This legally binding act shall be documented.
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/docs/labelling-criteria.md#criterion-p111
+	// https://docs.gaia-x.eu/policy-rules-committee/compliance-document/25.03/criteria_cloud_services/#P1.1.1
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/src/vp-validation/filter/service-offering-has-legally-binding-act.filter.ts
+
+	// P1.1.2
+	// The Provider shall have an option for each legally binding act to be governed by EU/EEA/Member State law.
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/docs/labelling-criteria.md#criterion-p112
+	// https://docs.gaia-x.eu/policy-rules-committee/compliance-document/25.03/criteria_cloud_services/#P1.1.2
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/src/vp-validation/filter/service-offering-legally-binding-acts-have-governing-law.country.ts
+
+	// P1.1.3
+	// The Provider shall clearly identify for which parties the legal act is binding.
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/docs/labelling-criteria.md#criterion-p113
+	// https://docs.gaia-x.eu/policy-rules-committee/compliance-document/25.03/criteria_cloud_services/#P1.1.3
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/src/vp-validation/filter/legal-document-has-involved-parties.filter.ts
+
+	// P1.1.5
+	// The Provider shall clearly identify in each legally binding act the applicable governing law.
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/docs/labelling-criteria.md#criterion-p115
+	// https://docs.gaia-x.eu/policy-rules-committee/compliance-document/25.03/criteria_cloud_services/#P1.1.5
+	// https://gitlab.com/gaia-x/lab/compliance/gx-compliance/-/blob/development/src/vp-validation/filter/service-offering-legally-binding-acts-have-governing-law.country.ts
 
 	LegallyBindingActVC, _ := vc.NewEmptyVerifiableCredentialV2(
 		vc.WithVCID(idprefix+"LegallyBindingAct"),
@@ -1235,7 +1260,8 @@ func TestCompliance(t *testing.T) {
 		vc.WithGaiaXContext())
 
 	LegallyBindingAct := gxTypes.LegalDocument{
-		URL: vc.WithAnyURI("https://www.posedio.com/LegallyBindingAct"),
+		URL:                   vc.WithAnyURI("https://www.posedio.com/LegallyBindingAct"),
+		GoverningLawCountries: []string{"AT"},
 	}
 	LegallyBindingAct.ID = LegallyBindingActVC.ID + "#cs"
 	err = LegallyBindingActVC.AddToCredentialSubject(LegallyBindingAct)
@@ -1492,6 +1518,10 @@ func TestCompliance(t *testing.T) {
 
 	offering, vpS, err := connector.SignServiceOfferingWithContext(ctx, compliance.ServiceOfferingComplianceOptions{ServiceOfferingVP: vp, ServiceOfferingLabelLevel: compliance.Level0, Id: idprefix + "complianceCredential"})
 	if err != nil {
+		if vpS != nil {
+			t.Log("debug vp jwt")
+			t.Log(string(vpS.GetOriginalJWS()))
+		}
 		t.Fatal(err)
 	}
 
