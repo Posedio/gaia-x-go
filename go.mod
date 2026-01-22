@@ -3,7 +3,7 @@ module github.com/Posedio/gaia-x-go
 go 1.25
 
 require (
-	github.com/dgraph-io/ristretto/v2 v2.3.0
+	github.com/dgraph-io/ristretto/v2 v2.4.0
 	github.com/go-playground/validator/v10 v10.30.1
 	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/goccy/go-json v0.10.5

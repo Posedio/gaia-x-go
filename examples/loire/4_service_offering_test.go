@@ -245,8 +245,8 @@ func TestCompliance(t *testing.T) {
 	EnergyMixCS := gxTypes.EnergyMix{
 		CredentialSubjectShape: vc.CredentialSubjectShape{Type: "gx:EnergyMix", ID: EnergyMixVC.ID + "#CS"},
 		Date:                   vc.WithAnyType(time.Now().Format(time.DateOnly), "xsd:date"),
-		RenewableEnergy:        vc.WithAnyType(2.67, "xsd:float"),
-		HourlyCarbonFreeEnergy: vc.WithAnyType(2.61, "xsd:float"),
+		RenewableEnergy:        vc.WithAnyType(0.5, "xsd:float"),
+		HourlyCarbonFreeEnergy: vc.WithAnyType(0.5, "xsd:float"),
 	}
 
 	err = EnergyMixVC.AddToCredentialSubject(EnergyMixCS)

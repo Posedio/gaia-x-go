@@ -41,16 +41,25 @@ func TestComplianceLevel1(t *testing.T) {
 	vp := vc.NewEmptyVerifiablePresentationV2()
 
 	//retrieve the legal registration number vc from the GXDCH
+	/*
+		LRNVC, err := connector.SignLegalRegistrationNumber(compliance.LegalRegistrationNumberOptions{
+			Id:                 idprefix + "LRN",
+			RegistrationNumber: "ATU75917607",
+			Type:               compliance.VatID,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	*/
 	LRNVC, err := connector.SignLegalRegistrationNumber(compliance.LegalRegistrationNumberOptions{
-		Id:                 idprefix + "LRN",
-		RegistrationNumber: "ATU75917607",
-		Type:               compliance.VatID,
+		Id: idprefix + "LRN",
+		//RegistrationNumber: "ATU75917607",
+		RegistrationNumber: "391200FJBNU0YW987L26",
+		//Type:               compliance.VatID,
+		Type: compliance.LeiCode,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	// verify the credential (not needed but recommended)
-	err = LRNVC.Verify(vc.IssuerMatch(), vc.IsGaiaXTrustedIssuer(compliance.TSystemRegistryV2.TrustedIssuer()))
+	err = LRNVC.Verify(vc.IssuerMatch(), vc.IsGaiaXTrustedIssuer(compliance.ArubaRegistryV1.TrustedIssuer()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,8 +225,8 @@ func TestComplianceLevel1(t *testing.T) {
 	EnergyMixCS := gxTypes.EnergyMix{
 		CredentialSubjectShape: vc.CredentialSubjectShape{Type: "gx:EnergyMix", ID: EnergyMixVC.ID + "#CS"},
 		Date:                   vc.WithAnyType(time.Now().Format(time.DateOnly), "xsd:date"),
-		RenewableEnergy:        vc.WithAnyType(2.67, "xsd:float"),
-		HourlyCarbonFreeEnergy: vc.WithAnyType(2.61, "xsd:float"),
+		RenewableEnergy:        vc.WithAnyType(0.5, "xsd:float"),
+		HourlyCarbonFreeEnergy: vc.WithAnyType(0.5, "xsd:float"),
 	}
 
 	err = EnergyMixVC.AddToCredentialSubject(EnergyMixCS)
@@ -230,6 +239,33 @@ func TestComplianceLevel1(t *testing.T) {
 	}
 
 	vp.AddEnvelopedVC(EnergyMixVC.GetOriginalJWS())
+
+	//Alternative for TC for Energymix
+	/*
+		TermsAndConditionsRVC, _ := vc.NewEmptyVerifiableCredentialV2(
+			vc.WithVCID(idprefix+"TermsAndConditionsR613"),
+			vc.WithValidFromNow(),
+			vc.WithAdditionalTypes("gx:TermsAndConditions"),
+			vc.WithIssuer(issuer),
+			vc.WithGaiaXContext())
+		TermsAndConditionsRCS := gxTypes.TermsAndConditions{
+			URL:  vc.WithAnyURI("https://docs.gaia-x.eu/policy-rules-committee/compliance-document/25.03/criteria_cloud_services/#P6.1.3"),
+			Hash: "cd3665fd9aadc68966a3c24588fe1156735ce5b691ee16b5aded3ea62aacd692",
+		}
+		TermsAndConditionsRCS.ID = TermsAndConditionsRVC.ID + "#cs"
+		err = TermsAndConditionsRVC.AddToCredentialSubject(TermsAndConditionsRCS)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = connector.SelfSign(TermsAndConditionsRVC)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		vp.AddEnvelopedVC(TermsAndConditionsRVC.GetOriginalJWS())
+
+	*/
 
 	// ___________________________________ criteria ___________________________________
 	// The Provider shall ensure that the Service Offering meets or relies on an infrastructure Services Offering that will
@@ -1529,6 +1565,7 @@ func TestComplianceLevel1(t *testing.T) {
 	serviceOffering.ProvisionType = "public"
 	serviceOffering.AddRequiredMeasuresURI(requiredMeasures.ID)
 	serviceOffering.AddServiceOfferingTermsAndConditionsURI(TermsAndConditionsCS.ID)
+	//serviceOffering.AddServiceOfferingTermsAndConditionsURI(TermsAndConditionsRCS.ID) alternative for 6.1.3
 	serviceOffering.ServiceScope = "EuPG"
 	serviceOffering.AddSubContractorURI(subcontractorCS.ID)
 	serviceOffering.ServicePolicy = []gxTypes.AccessUsagePolicy{{GaiaXEntity: gxTypes.GaiaXEntity{CredentialSubjectShape: vc.CredentialSubjectShape{ID: AccessPolicyCS.ID, Type: "gx:AccessUsagePolicy"}}}}
@@ -1555,6 +1592,7 @@ func TestComplianceLevel1(t *testing.T) {
 
 	offering, _, err := connector.SignServiceOffering(compliance.ServiceOfferingComplianceOptions{ServiceOfferingVP: vp, ServiceOfferingLabelLevel: compliance.Level1, Id: idprefix + "complianceCredential"})
 	if err != nil {
+		t.Log(string(vp.GetOriginalJWS()))
 		t.Fatal(err)
 	}
 	t.Log(offering)
