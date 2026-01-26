@@ -21,7 +21,6 @@ import (
 
 	vcTypes "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"github.com/go-playground/validator/v10"
-	"github.com/lestrrat-go/jwx/v3/jws"
 )
 
 // LoireCompliance is compatibility is checked up to clearinghouse 1.11.1
@@ -99,7 +98,7 @@ func (c *LoireCompliance) SignTermsAndConditions(id string) (*vcTypes.Verifiable
 		vcTypes.WithVCID(id),
 		vcTypes.WithValidFromNow(),
 		vcTypes.WithAdditionalTypes("gx:Issuer"),
-		vcTypes.WithIssuer(c.issuer.Issuer),
+		vcTypes.WithIssuer(c.GetIssuer()),
 		vcTypes.WithGaiaXContext(),
 	)
 	/*
@@ -135,7 +134,7 @@ func (c *LoireCompliance) GaiaXSignParticipant(po ParticipantComplianceOptions) 
 	if err != nil {
 		return nil, nil, err
 	}
-	po.participantVC.Issuer = c.issuer.Issuer
+	po.participantVC.Issuer = c.GetIssuer()
 	err = c.SelfSign(po.participantVC)
 	if err != nil {
 		return nil, nil, err
@@ -180,52 +179,14 @@ func (c *LoireCompliance) SignServiceOfferingWithContext(ctx context.Context, op
 
 	vp := options.ServiceOfferingVP
 
-	headers := jws.NewHeaders()
-
-	err := headers.Set("cty", "vp")
-	if err != nil {
-		return nil, nil, err
-	}
-	err = headers.Set("typ", "vp+jwt")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = headers.Set("alg", c.issuer.Alg)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = headers.Set("iss", c.issuer.Issuer)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = headers.Set("kid", c.issuer.VerificationMethod)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	vp.Issuer = c.issuer.Issuer
-	vp.ValidFrom.InternalTime = time.Now()
-
-	j, err := vp.ToJson()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	buf, err := jws.Sign(j, jws.WithKey(c.issuer.Alg, c.issuer.Key, jws.WithProtectedHeaders(headers)))
-	if err != nil {
-		return nil, nil, err
-	}
-
-	err = vp.AddSignature(buf)
+	err := c.Signer.SelfSignPresentation(vp, options.ValidFor)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	u := c.signUrl.String() + "/" + options.ServiceOfferingLabelLevel.String() + "?vcid=" + url.QueryEscape(options.Id)
 
-	req, err := http.NewRequestWithContext(ctx, "POST", u, bytes.NewBuffer(buf))
+	req, err := http.NewRequestWithContext(ctx, "POST", u, bytes.NewBuffer(vp.GetOriginalJWS()))
 	if err != nil {
 		return nil, vp, err
 	}
