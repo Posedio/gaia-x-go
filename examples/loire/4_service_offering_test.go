@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Posedio/gaia-x-go/signer"
 	"github.com/lestrrat-go/jwx/v3/jwa"
 	"github.com/stretchr/testify/assert"
 
@@ -42,14 +43,19 @@ func TestCompliance(t *testing.T) {
 	}
 	t.Log(string(body))
 
-	connector, err := compliance.NewComplianceConnectorV2(
+	connector, err := compliance.NewComplianceConnectorV3(
 		compliance.Endpoints{Compliance: compliance.V2Staging, Notary: compliance.DeltaDaoV2Notary},
 		"loire",
-		&compliance.IssuerSetting{
-			Key:                key,
-			Alg:                jwa.PS256(),
-			Issuer:             issuer,
-			VerificationMethod: "did:web:did.dumss.me#v3-2025",
+		&signer.JWTSigner{
+			Issuer: &signer.IssuerSetting{
+				Key:                key,
+				Alg:                jwa.PS256(),
+				Issuer:             issuer,
+				VerificationMethod: "did:web:did.dumss.me#v3-2025",
+			},
+			Client: &http.Client{
+				Timeout: 90 * time.Second,
+			},
 		})
 	if err != nil {
 		t.Fatal(err)

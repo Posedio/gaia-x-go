@@ -20,6 +20,8 @@ type Signer interface {
 	SelfSignPresentation(presentation *vcTypes.VerifiablePresentation, validFor time.Duration) error
 	SelfVerify(vc *vcTypes.VerifiableCredential) error
 	SelfSignCredentialSubject(id string, credentialSubject []map[string]interface{}) (*vcTypes.VerifiableCredential, error)
+	GetIssuer() string
+	GetVerificationMethod() string
 }
 
 type IssuerSetting struct {
@@ -95,6 +97,14 @@ func NewSigner(issuer *IssuerSetting, opts ...option) (Signer, error) {
 	}
 
 	return sig, nil
+}
+
+func (c *JWTSigner) GetIssuer() string {
+	return c.Issuer.Issuer
+}
+
+func (c *JWTSigner) GetVerificationMethod() string {
+	return c.Issuer.VerificationMethod
 }
 
 func (c *JWTSigner) SelfVerify(vc *vcTypes.VerifiableCredential) error {

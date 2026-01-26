@@ -232,6 +232,51 @@ func CustomRetryClient(client *retryablehttp.Client) *option {
 	}}
 }
 
+// NewComplianceConnectorV3 drops support for Tagus and only supports Loire
+func NewComplianceConnectorV3(clearingHouse Endpoints, version string, sign signer.Signer, opts ...option) (Compliance, error) {
+	opt := &options{}
+	for _, o := range opts {
+		if err := o.apply(opt); err != nil {
+			return nil, err
+		}
+	}
+	if opt.retryClient == nil {
+		opt.retryClient = retryablehttp.NewClient()
+		opt.retryClient.RetryMax = 2
+		opt.retryClient.RetryWaitMin = 10 * time.Second
+		opt.retryClient.RetryWaitMax = 60 * time.Second
+		opt.retryClient.HTTPClient.Timeout = 90 * time.Second
+		opt.retryClient.Logger = nil
+
+		opt.retryClient.CheckRetry = vcTypes.DefaultRetryPolicy
+	}
+
+	hc := opt.retryClient.StandardClient()
+
+	if version == "24.11" || version == "loire" || version == "Loire" {
+
+		c := &LoireCompliance{
+			Signer:    sign,
+			signUrl:   clearingHouse.Compliance,
+			version:   version,
+			notaryURL: clearingHouse.Notary,
+			client:    hc,
+			validate:  validator.New(),
+		}
+
+		err := c.validate.RegisterValidation("validateRegistrationNumberType", ValidateRegistrationNumberType)
+		if err != nil {
+			return nil, err
+		}
+
+		return c, nil
+	}
+
+	return nil, errors.New("not supported version")
+}
+
+// NewComplianceConnectorV2
+// Deprecated: will be removed with the next major release
 func NewComplianceConnectorV2(clearingHouse Endpoints, version string, issuer *IssuerSetting, opts ...option) (Compliance, error) {
 	opt := &options{}
 	for _, o := range opts {
@@ -473,6 +518,7 @@ type ServiceOfferingComplianceOptions struct {
 	ServiceOfferingVP            *vcTypes.VerifiablePresentation
 	ServiceOfferingLabelLevel    LabelLevel
 	serviceOfferingVC            *vcTypes.VerifiableCredential
+	ValidFor                     time.Duration
 }
 
 func (sco *ServiceOfferingComplianceOptions) BuildVC() error {
