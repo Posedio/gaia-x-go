@@ -726,6 +726,61 @@ type BareMetalServiceOffering struct {
 	InstantiationReq []ServerFlavor `json:"gx:instantiationReq"`
 }
 
+// DigitalServiceOffering the virtual base class for any kind of digital service (for inheritance not for instanciation)
+type DigitalServiceOffering struct {
+	GaiaXEntity
+	// gx:digitalServiceOfferingName (minCount 1, maxCount 1)
+	DigitalServiceOfferingName string `json:"gx:digitalServiceOfferingName" validate:"required"`
+	// gx:digitalServiceOfferingShortDescription (minCount 1, maxCount 1)
+	DigitalServiceOfferingShortDescription string `json:"gx:digitalServiceOfferingShortDescription" validate:"required"`
+	// gx:digitalServiceOfferingProvider (class gx:LegalPerson, minCount 1, maxCount 1, BlankNodeOrIRI)
+	// Use an IRI string or embed/resolve a full LegalPerson separately in your RDF layer.
+	DigitalServiceOfferingProvider LegalPerson `json:"gx:digitalServiceOfferingProvider" validate:"required,uri"`
+	// gx:digitalServiceOfferingIdentifier (minCount 1, maxCount 1) - described as UUIDIdentifier4
+	DigitalServiceOfferingIdentifier string `json:"gx:digitalServiceOfferingIdentifier" validate:"required,uuid4"`
+	// gx:keyword (0..n)
+	Keyword []string `json:"gx:keyword,omitempty"`
+	// gx:digitalServiceOfferingLaunchDate (minCount 1, maxCount 1) - SHACL uses xsd:string
+	// If this is xsd:dateTime in practice, consider time.Time with proper parsing in your RDF mapper.
+	DigitalServiceOfferingLaunchDate string `json:"gx:digitalServiceOfferingLaunchDate" validate:"required"`
+	// gx:digitalServiceOfferingEndDate (0..1) - SHACL uses xsd:string
+	DigitalServiceOfferingEndDate string `json:"gx:digitalServiceOfferingEndDate,omitempty"`
+	// gx:digitalServiceOfferingTermsAndConditions (class gx:ServiceTermsAndConditions, minCount 1, maxCount 1)
+	DigitalServiceOfferingTermsAndConditions TermsAndConditions `json:"gx:digitalServiceOfferingTermsAndConditions" validate:"required"`
+	// gx:digitalServiceUsageTermsAndConditions (class gx:UsageTermsAndConditions, minCount 1, maxCount 1)
+	DigitalServiceUsageTermsAndConditions TermsAndConditions `json:"gx:digitalServiceUsageTermsAndConditions" validate:"required"`
+	// gx:digitalServiceUsageDataPolicy (class gx:TermsAndConditions, minCount 1, maxCount 1)
+	DigitalServiceUsageDataPolicy TermsAndConditions `json:"gx:digitalServiceUsageDataPolicy" validate:"required"`
+	// gx:digitalServiceLegalDocuments (class gx:LegalDocument, minCount 1, 1..n not explicitly bounded)
+	// SHACL sets minCount 1, no maxCount => slice.
+	DigitalServiceLegalDocuments []LegalDocument `json:"gx:digitalServiceLegalDocuments" validate:"required"` //required
+	// gx:digitalServiceOfferingContactInformation (class gx:ContactInformation, 0..1)
+	DigitalServiceOfferingContactInformation *ContactInformation `json:"gx:digitalServiceOfferingContactInformation,omitempty"`
+}
+
+func (dso *DigitalServiceOffering) AddLegalDocumentURI(uri string) {
+	r := LegalDocument{}
+	r.ID = uri
+	dso.DigitalServiceLegalDocuments = append(dso.DigitalServiceLegalDocuments, r)
+}
+
+// DataProduct2511 A collection of data which is packaged by a Data Provider and made ready for Data Access.
+type DataProduct2511 struct {
+	DigitalServiceOffering
+	DataRightsHolders      []LegalPerson              `json:"gx:dataRightsHolders"`
+	DataProductDescription DataProductDescription2511 `json:"gx:dataProductDescription"`
+}
+
+// DataProduct represents a Gaia-X data product
+// Deprecated
+type DataProduct struct {
+	ServiceOffering
+	// required: A resolvable link to the Data Producer Declaration
+	ProvidedBy LegalPerson `json:"gx:providedBy"`
+	// required: The link to a Data Product Description
+	DescribedBy DataProductDescription `json:"gx:describedBy"`
+}
+
 // TermsAndConditions represents terms applying to a service offering
 type TermsAndConditions struct {
 	vc.CredentialSubjectShape
@@ -1630,6 +1685,8 @@ type ConstraintOperators struct {
 	IsNoneOf string `json:"odrl:isNoneOf,omitempty"`
 }
 
+// DataLicense
+// Deprecated
 type DataLicense struct {
 	// A list of URIs to license documents
 	Licenses []string `json:"gx:licenses,omitempty"`
@@ -1637,18 +1694,44 @@ type DataLicense struct {
 	TermsAndConditions string `json:"gx:termsAndConditions,omitempty"`
 }
 
+type DataLicense2511 struct {
+	OdrlProfile            string                  `json:"odrl:profile,omitempty"`
+	GenericLicense         any                     `json:"gx:genericLicense,omitempty"`
+	DataAccessPrerequisite *DataAccessPrerequisite `json:"gx:DataAccessPrerequisite,omitempty"`
+	DataUsageConstraint    *DataUsageConstraint    `json:"gx:DataUsageConstraint,omitempty"`
+}
+
+type DataUsageConstraint struct {
+	OdrlProfile     string `json:"odrl:profile"`
+	DataUsagePolicy any    `json:"odrl:dataUsagePolicy"` //required xsd:string, xsd:anyURI
+}
+
+type DataAccessPrerequisite struct {
+	DataAccessPolicy     any                  `json:"gx:dataAccessPolicy"`     //required xsd:string, xsd:anyURI
+	PermissibleEvidences PermissibleEvidences `json:"gx:permissibleEvidences"` //required
+}
+
+type PermissibleEvidences struct {
+	VerifiableClaimTemplate string        `json:"gx:verifiableClaimTemplate,omitempty"`
+	AcceptedIssuers         []LegalPerson `json:"gx:acceptedIssuers"` //required
+}
+
 type DataProductDescription struct {
 	GaiaXEntity
 	DataLicense DataLicense `json:"gx:dataLicense"`
 }
 
-// DataProduct represents a Gaia-X data product
-type DataProduct struct {
-	ServiceOffering
-	// required: A resolvable link to the Data Producer Declaration
-	ProvidedBy LegalPerson `json:"gx:providedBy"`
-	// required: The link to a Data Product Description
-	DescribedBy DataProductDescription `json:"gx:describedBy"`
+type DataProductDescription2511 struct {
+	GaiaXEntity
+	DataSets                           []string                            `json:"dcat:Dataset"` //one required since 25.11
+	DataProductConfigurationParameters []DataProductConfigurationParameter `json:"gx:dataProductConfigurationParameters"`
+	DataLicense                        *DataLicense2511                    `json:"gx:DataLicense,omitempty"`
+}
+
+type DataProductConfigurationParameter struct {
+	ParameterName             string   `json:"gx:parameterName"`             // required
+	ParameterDescription      string   `json:"gx:parameterDescription"`      // required
+	ParameterAdmissibleValues []string `json:"gx:parameterAdmissibleValues"` //required 1
 }
 
 // SignatureCheckType defines signature requirements
