@@ -44,7 +44,7 @@ func TestCompliance(t *testing.T) {
 	t.Log(string(body))
 
 	connector, err := compliance.NewComplianceConnectorV3(
-		compliance.Endpoints{Compliance: compliance.V2Staging, Notary: compliance.DeltaDaoV2Notary},
+		compliance.Endpoints{Compliance: compliance.Development, Notary: compliance.DeltaDaoV2Notary},
 		"loire",
 		&signer.JWTSigner{
 			Issuer: &signer.IssuerSetting{
@@ -56,7 +56,8 @@ func TestCompliance(t *testing.T) {
 			Client: &http.Client{
 				Timeout: 90 * time.Second,
 			},
-		})
+		},
+		compliance.CustomRetryClient(&http.Client{Timeout: 300 * time.Second}))
 	if err != nil {
 		t.Fatal(err)
 	}

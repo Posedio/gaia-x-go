@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -213,7 +214,7 @@ type IssuerSetting struct {
 }
 
 type options struct {
-	retryClient *retryablehttp.Client
+	retryClient *http.Client
 }
 
 // option for future usage
@@ -225,8 +226,8 @@ func (so *option) apply(option *options) error {
 	return so.f(option)
 }
 
-func CustomRetryClient(client *retryablehttp.Client) *option {
-	return &option{f: func(option *options) error {
+func CustomRetryClient(client *http.Client) option {
+	return option{f: func(option *options) error {
 		option.retryClient = client
 		return nil
 	}}
@@ -240,18 +241,21 @@ func NewComplianceConnectorV3(clearingHouse Endpoints, version string, sign sign
 			return nil, err
 		}
 	}
+
+	var hc *http.Client
+
 	if opt.retryClient == nil {
-		opt.retryClient = retryablehttp.NewClient()
-		opt.retryClient.RetryMax = 2
-		opt.retryClient.RetryWaitMin = 10 * time.Second
-		opt.retryClient.RetryWaitMax = 60 * time.Second
-		opt.retryClient.HTTPClient.Timeout = 90 * time.Second
-		opt.retryClient.Logger = nil
-
-		opt.retryClient.CheckRetry = vcTypes.DefaultRetryPolicy
+		retryClient := retryablehttp.NewClient()
+		retryClient.RetryMax = 2
+		retryClient.RetryWaitMin = 10 * time.Second
+		retryClient.RetryWaitMax = 60 * time.Second
+		retryClient.HTTPClient.Timeout = 90 * time.Second
+		retryClient.Logger = nil
+		retryClient.CheckRetry = vcTypes.DefaultRetryPolicy
+		retryClient.StandardClient()
+	} else {
+		hc = opt.retryClient
 	}
-
-	hc := opt.retryClient.StandardClient()
 
 	if version == "24.11" || version == "loire" || version == "Loire" {
 
@@ -284,18 +288,20 @@ func NewComplianceConnectorV2(clearingHouse Endpoints, version string, issuer *I
 			return nil, err
 		}
 	}
+	var hc *http.Client
+
 	if opt.retryClient == nil {
-		opt.retryClient = retryablehttp.NewClient()
-		opt.retryClient.RetryMax = 2
-		opt.retryClient.RetryWaitMin = 10 * time.Second
-		opt.retryClient.RetryWaitMax = 60 * time.Second
-		opt.retryClient.HTTPClient.Timeout = 90 * time.Second
-		opt.retryClient.Logger = nil
-
-		opt.retryClient.CheckRetry = vcTypes.DefaultRetryPolicy
+		retryClient := retryablehttp.NewClient()
+		retryClient.RetryMax = 2
+		retryClient.RetryWaitMin = 10 * time.Second
+		retryClient.RetryWaitMax = 60 * time.Second
+		retryClient.HTTPClient.Timeout = 90 * time.Second
+		retryClient.Logger = nil
+		retryClient.CheckRetry = vcTypes.DefaultRetryPolicy
+		retryClient.StandardClient()
+	} else {
+		hc = opt.retryClient
 	}
-
-	hc := opt.retryClient.StandardClient()
 
 	var didResolved *did.DID
 	if issuer != nil {
