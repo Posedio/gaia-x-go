@@ -1045,6 +1045,10 @@ func (c *VerifiableCredential) Verify(options ...*verifyOption) error {
 			return errors.New("the KID from the JWT header does not match any key from the issuer DID")
 		}
 
+		if !slices.Contains(key.AllowedMethods, did.AssertionMethod) {
+			return fmt.Errorf("verification method %v not allowed as %v", kid, did.AssertionMethod)
+		}
+
 		alg, ok := key.JWK.Algorithm()
 		if !ok {
 			return errors.New("the JWK key needs to specify the algorithm")
@@ -1236,10 +1240,10 @@ func (c *VerifiableCredential) Verify(options ...*verifyOption) error {
 
 		key, ok := d.Keys[proof.VerificationMethod]
 		if !ok {
-			return fmt.Errorf("verfication method not defined in DID")
+			return fmt.Errorf("verification method not defined in DID")
 		}
 		if !slices.Contains(key.AllowedMethods, did.AssertionMethod) {
-			return fmt.Errorf("verfication method %v not allowed as %v", proof.VerificationMethod, did.AssertionMethod)
+			return fmt.Errorf("verification method %v not allowed as %v", proof.VerificationMethod, did.AssertionMethod)
 		}
 
 		k := key.JWK
