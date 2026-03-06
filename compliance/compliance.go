@@ -252,7 +252,7 @@ func NewComplianceConnectorV3(clearingHouse Endpoints, version string, sign sign
 		retryClient.HTTPClient.Timeout = 90 * time.Second
 		retryClient.Logger = nil
 		retryClient.CheckRetry = vcTypes.DefaultRetryPolicy
-		retryClient.StandardClient()
+		hc = retryClient.StandardClient()
 	} else {
 		hc = opt.retryClient
 	}

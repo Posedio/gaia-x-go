@@ -1037,12 +1037,12 @@ func (c *VerifiableCredential) Verify(options ...*verifyOption) error {
 
 		kid, ok := c.signature.JWTHeader.KeyID()
 		if !ok {
-			return fmt.Errorf("jwt header key ID not present")
+			return fmt.Errorf("jwt header kid not present")
 		}
 
 		key, k := c.signature.DID.Keys[kid]
 		if !k {
-			return errors.New("the KID from the JWT header does not match any key from the issuer DID")
+			return errors.New("the kid from the JWT header does not match any key from the issuer DID")
 		}
 
 		if !slices.Contains(key.AllowedMethods, did.AssertionMethod) {
