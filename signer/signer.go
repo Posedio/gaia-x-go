@@ -167,7 +167,6 @@ func (c *JWTSigner) SelfSignVC(vc *vcTypes.VerifiableCredential) (*vcTypes.Verif
 	if err != nil {
 		return nil, err
 	}
-
 	buf, err := jws.Sign(jsc, jws.WithKey(c.Issuer.Alg, c.Issuer.Key, jws.WithProtectedHeaders(headers)))
 	if err != nil {
 		return nil, err

@@ -94,11 +94,10 @@ func (t *JTime) UnmarshalJSON(data []byte) error {
 }
 
 // VerifiablePresentation implements the shape of a verifiable presentation as defined in: https://www.w3.org/TR/vc-data-model/#presentations
-// since Gaia-X has not defined a proof method yet, this is still open
 type VerifiablePresentation struct {
 	Context              Context                 `json:"@context" validate:"required"`
 	Id                   string                  `json:"id,omitempty,omitzero"`
-	Type                 string                  `json:"type" validate:"required"`
+	Type                 string                  `json:"type" validate:"required"` //todo array
 	VerifiableCredential []*VerifiableCredential `json:"verifiableCredential" validate:"required"`
 	Proof                *Proofs                 `json:"proof,omitempty"`                                    //non-standard-compliant
 	Issuer               string                  `json:"issuer,omitempty,omitzero" validate:"omitempty"`     //non-standard-compliant
@@ -1088,21 +1087,42 @@ func (c *VerifiableCredential) Verify(options ...*verifyOption) error {
 			return fmt.Errorf("error on parsing JWK public key: %v", err)
 		}
 
-		var certN []uint8
+		if strings.Contains(alg.String(), "PS") || strings.Contains(alg.String(), "RS") {
+			var certN []uint8
 
-		err = certKey.Get("n", &certN)
-		if err != nil {
-			return err
+			err = certKey.Get("n", &certN)
+			if err != nil {
+				return err
+			}
+
+			var keyN []uint8
+			err = key.JWK.Get("n", &keyN)
+			if err != nil {
+				return err
+			}
+
+			if base64.StdEncoding.EncodeToString(certN) != base64.StdEncoding.EncodeToString(keyN) {
+				return errors.New("mismatched public key in certificate and did jwk")
+			}
 		}
 
-		var keyN []uint8
-		err = key.JWK.Get("n", &keyN)
-		if err != nil {
-			return err
-		}
+		if strings.Contains(alg.String(), "ES") {
+			var certN []uint8
 
-		if base64.StdEncoding.EncodeToString(certN) != base64.StdEncoding.EncodeToString(keyN) {
-			return errors.New("mismatched public key in certificate and did jwk")
+			err = certKey.Get("x", &certN)
+			if err != nil {
+				return err
+			}
+
+			var keyN []uint8
+			err = key.JWK.Get("x", &keyN)
+			if err != nil {
+				return err
+			}
+
+			if base64.StdEncoding.EncodeToString(certN) != base64.StdEncoding.EncodeToString(keyN) {
+				return errors.New("mismatched public key in certificate and did jwk")
+			}
 		}
 
 		if !slices.Contains(cert.DNSNames, host) {
