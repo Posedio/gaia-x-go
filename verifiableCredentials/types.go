@@ -905,6 +905,30 @@ func WithGaiaX2411Context() VerifiableCredentialOption {
 	}
 }
 
+func WithContextString(context string) VerifiableCredentialOption {
+	return &baseVCOption{
+		f: func(vc *VerifiableCredential) error {
+			vc.Context.Context = append(vc.Context.Context, Namespace{
+				Namespace: "",
+				URL:       context,
+			})
+			return nil
+		},
+	}
+}
+
+func WithContextMapping(namespace, context string) VerifiableCredentialOption {
+	return &baseVCOption{
+		f: func(vc *VerifiableCredential) error {
+			vc.Context.Context = append(vc.Context.Context, Namespace{
+				Namespace: namespace,
+				URL:       context,
+			})
+			return nil
+		},
+	}
+}
+
 const JWTType = "vc+ld+jwt"
 const JWTCTY = "vc+ld"
 
