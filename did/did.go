@@ -179,6 +179,8 @@ type VerificationMethod struct {
 	Type               string `json:"type"`
 	PublicKeyJwk       any    `json:"publicKeyJwk,omitempty"` //json jwk representation
 	PublicKeyMultibase string `json:"publicKeyMultibase,omitempty"`
+	Expires            string `json:"expires,omitempty"`
+	Revoked            string `json:"revoked,omitempty"`
 }
 
 type ServiceType string

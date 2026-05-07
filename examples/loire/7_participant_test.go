@@ -1,11 +1,13 @@
 package loire
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/Posedio/gaia-x-go/compliance"
 	"github.com/Posedio/gaia-x-go/gxTypes"
+	"github.com/Posedio/gaia-x-go/signer"
 	vc "github.com/Posedio/gaia-x-go/verifiableCredentials"
 	"github.com/lestrrat-go/jwx/v3/jwa"
 )
@@ -17,16 +19,20 @@ func TestLegalPersonDirect(t *testing.T) {
 	var countryName = "Austria"
 
 	// instantiate a Compliance Connector for the Loire release
-	connector, err := compliance.NewComplianceConnectorV2(
-		compliance.Endpoints{Compliance: compliance.V2Staging, Notary: compliance.DeltaDaoV2Notary},
-
+	connector, err := compliance.NewComplianceConnectorV3(
+		compliance.Endpoints{Compliance: compliance.V2Staging, Notary: compliance.NeustaV2Notary},
 		"loire",
-		&compliance.IssuerSetting{
-			Key:                key,
-			Alg:                jwa.PS256(),
-			Issuer:             issuer,
-			VerificationMethod: "did:web:did.dumss.me#v3-2025",
-		})
+		&signer.JWTSigner{
+			Issuer: &signer.IssuerSetting{
+				Key:                key,
+				Alg:                jwa.PS256(),
+				Issuer:             issuer,
+				VerificationMethod: "did:web:did.dumss.me#v2-2026",
+			},
+			Client: &http.Client{
+				Timeout: 90 * time.Second,
+			}},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,11 +41,22 @@ func TestLegalPersonDirect(t *testing.T) {
 	vp := vc.NewEmptyVerifiablePresentationV2()
 
 	//retrieve the legal registration number vc from the GXDCH
+	/*
+		LRNVC, err := connector.SignLegalRegistrationNumber(compliance.LegalRegistrationNumberOptions{
+			Id:                 idprefix + "LRN",
+			RegistrationNumber: "ATU75917607",
+			Type:               compliance.VatID,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+	*/
 
 	LRNVC, err := connector.SignLegalRegistrationNumber(compliance.LegalRegistrationNumberOptions{
 		Id:                 idprefix + "LRN",
-		RegistrationNumber: "ATU75917607",
-		Type:               compliance.VatID,
+		RegistrationNumber: "98450045E09C7F5A0703",
+		Type:               compliance.LeiCode,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -50,7 +67,7 @@ func TestLegalPersonDirect(t *testing.T) {
 	t.Log(string(LRNVC.GetOriginalJWS()))
 
 	// verify the credential (not needed but recommended)
-	err = LRNVC.Verify(vc.IssuerMatch(), vc.IsGaiaXTrustedIssuer(compliance.TSystemRegistryV2.TrustedIssuer()))
+	err = LRNVC.Verify(vc.IssuerMatch(), vc.IsGaiaXTrustedIssuer(compliance.CISPERegistryV2.TrustedIssuer()))
 	if err != nil {
 		t.Fatal(err)
 	}
