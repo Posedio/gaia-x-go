@@ -23,9 +23,10 @@ func DefaultRetryPolicy(ctx context.Context, resp *http.Response, err error) (bo
 		return false, ctx.Err()
 	}
 
-	// don't propagate other errors
-	shouldRetry, _ := baseRetryPolicy(resp, err)
-	return shouldRetry, nil
+	// propagate the underlying error so retryablehttp wraps it into the
+	// final "giving up after N attempt(s): <err>" message once retries are
+	// exhausted, instead of dropping the root cause.
+	return baseRetryPolicy(resp, err)
 }
 
 // baseRetryPolicy fork from https://github.com/hashicorp/go-retryablehttp/blob/v0.7.4/client.go#L446

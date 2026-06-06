@@ -955,7 +955,7 @@ type WaterUsageEffectiveness struct {
 	// Legal documents certifying the water usage effectiveness
 	Certifications []LegalDocument `json:"gx:certifications,omitempty"`
 	// The effectiveness of water usage, represented as a float
-	WaterUsageEffectiveness any `json:"gx:waterUsageEffectiveness,omitempty"`
+	WaterUsageEffectiveness any `json:"gx:waterUsageEffectivenessValue,omitempty"`
 }
 
 // EnergyMix details the composition of energy sources
