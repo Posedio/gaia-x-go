@@ -32,6 +32,7 @@ import (
 	"github.com/gowebpki/jcs"
 	"github.com/lestrrat-go/jwx/v3/jws"
 	"github.com/piprate/json-gold/ld"
+	"golang.org/x/net/publicsuffix"
 )
 
 const W3CredentialsUrl = "https://www.w3.org/2018/credentials/v1"  // #nosec
@@ -563,6 +564,51 @@ func (vp *VerifiablePresentation) GetOriginalJWS() []byte {
 	return nil
 }
 
+func hostMatchesCertDNS(host string, dnsNames []string) bool {
+	h := strings.ToLower(strings.TrimSuffix(host, "."))
+	hostRegistrable, hostErr := publicsuffix.EffectiveTLDPlusOne(h)
+	hostSLD := secondLevelLabel(hostRegistrable)
+	for _, name := range dnsNames {
+		n := strings.ToLower(strings.TrimSuffix(name, "."))
+		if n == "" {
+			continue
+		}
+		if strings.HasPrefix(n, "*.") {
+			base := strings.TrimPrefix(n, "*.")
+			if strings.HasSuffix(h, "."+base) && strings.Count(h, ".") == strings.Count(base, ".")+1 {
+				return true
+			}
+			continue
+		}
+		if h == n || strings.HasSuffix(h, "."+n) {
+			return true
+		}
+		if hostErr == nil {
+			nameRegistrable, err := publicsuffix.EffectiveTLDPlusOne(n)
+			if err != nil {
+				continue
+			}
+			if nameRegistrable == hostRegistrable {
+				return true
+			}
+			if hostSLD != "" && hostSLD == secondLevelLabel(nameRegistrable) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func secondLevelLabel(registrable string) string {
+	if registrable == "" {
+		return ""
+	}
+	if i := strings.Index(registrable, "."); i > 0 {
+		return registrable[:i]
+	}
+	return ""
+}
+
 func (vp *VerifiablePresentation) Verify(options ...*verifyOption) error {
 	if vp.signature == nil {
 		return fmt.Errorf("verifiablePresentation is missing signature")
@@ -615,8 +661,8 @@ func (vp *VerifiablePresentation) Verify(options ...*verifyOption) error {
 	if err != nil {
 		return err
 	}
-	if !slices.Contains(cert.DNSNames, host) {
-		return fmt.Errorf("host %v not in the list of allowed DNS Names %v of the provided DID x509 certificate", host, cert.DNSNames)
+	if !hostMatchesCertDNS(host, cert.DNSNames) {
+		return fmt.Errorf("host %v not covered by allowed DNS Names %v of the provided DID x509 certificate", host, cert.DNSNames)
 	}
 
 	certKey, err := jwk.Import(cert.PublicKey)
@@ -641,8 +687,8 @@ func (vp *VerifiablePresentation) Verify(options ...*verifyOption) error {
 		return errors.New("mismatched public key in certificate and did jwk")
 	}
 
-	if !slices.Contains(cert.DNSNames, host) {
-		return fmt.Errorf("host %v not in the list of allowed DNS Names %v of the provided DID x509 certificate", host, cert.DNSNames)
+	if !hostMatchesCertDNS(host, cert.DNSNames) {
+		return fmt.Errorf("host %v not covered by allowed DNS Names %v of the provided DID x509 certificate", host, cert.DNSNames)
 	}
 
 	alg, ok := vp.signature.JWTHeader.Algorithm()
@@ -1149,8 +1195,8 @@ func (c *VerifiableCredential) Verify(options ...*verifyOption) error {
 			}
 		}
 
-		if !slices.Contains(cert.DNSNames, host) {
-			return fmt.Errorf("host %v not in the list of allowed DNS Names %v of the provided DID x509 certificate", host, cert.DNSNames)
+		if !hostMatchesCertDNS(host, cert.DNSNames) {
+			return fmt.Errorf("host %v not covered by allowed DNS Names %v of the provided DID x509 certificate", host, cert.DNSNames)
 		}
 
 		typ, ok := c.signature.JWTHeader.Type()
