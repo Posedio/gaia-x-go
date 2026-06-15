@@ -1697,7 +1697,7 @@ type DataLicense struct {
 type DataLicense2511 struct {
 	OdrlProfile            string                  `json:"odrl:profile,omitempty"`
 	GenericLicense         any                     `json:"gx:genericLicense,omitempty"` //xsd:anyURI
-	DataAccessPrerequisite *DataAccessPrerequisite `json:"gx:dataAccessPrerequisite,omitempty"`
+	DataAccessPrerequisite *DataAccessPrerequisite `json:"gx:dataAccessPrerequisites,omitempty"`
 	DataUsageConstraint    *DataUsageConstraint    `json:"gx:dataUsageConstraint,omitempty"`
 }
 
