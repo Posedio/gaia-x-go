@@ -1696,9 +1696,9 @@ type DataLicense struct {
 
 type DataLicense2511 struct {
 	OdrlProfile            string                  `json:"odrl:profile,omitempty"`
-	GenericLicense         any                     `json:"gx:genericLicense,omitempty"`
-	DataAccessPrerequisite *DataAccessPrerequisite `json:"gx:DataAccessPrerequisite,omitempty"`
-	DataUsageConstraint    *DataUsageConstraint    `json:"gx:DataUsageConstraint,omitempty"`
+	GenericLicense         any                     `json:"gx:genericLicense,omitempty"` //xsd:anyURI
+	DataAccessPrerequisite *DataAccessPrerequisite `json:"gx:dataAccessPrerequisite,omitempty"`
+	DataUsageConstraint    *DataUsageConstraint    `json:"gx:dataUsageConstraint,omitempty"`
 }
 
 type DataUsageConstraint struct {
@@ -1725,7 +1725,7 @@ type DataProductDescription2511 struct {
 	GaiaXEntity
 	DataSets                           []string                            `json:"dcat:Dataset"` //one required since 25.11
 	DataProductConfigurationParameters []DataProductConfigurationParameter `json:"gx:dataProductConfigurationParameters"`
-	DataLicense                        *DataLicense2511                    `json:"gx:DataLicense,omitempty"`
+	DataLicense                        *DataLicense2511                    `json:"gx:dataLicense,omitempty"`
 }
 
 type DataProductConfigurationParameter struct {
