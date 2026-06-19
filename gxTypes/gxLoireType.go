@@ -1703,7 +1703,7 @@ type DataLicense2511 struct {
 
 type DataUsageConstraint struct {
 	OdrlProfile     string `json:"odrl:profile"`
-	DataUsagePolicy any    `json:"odrl:dataUsagePolicy"` //required xsd:string, xsd:anyURI
+	DataUsagePolicy any    `json:"gx:dataUsagePolicy"` //required xsd:string, xsd:anyURI
 }
 
 type DataAccessPrerequisite struct {
